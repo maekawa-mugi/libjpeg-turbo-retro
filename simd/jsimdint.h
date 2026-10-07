@@ -506,6 +506,31 @@ DEFINE_SIMD_EXTRGB_MERGED_UPSAMPLERS(h2v2, rvv)
 DEFINE_SIMD_EXTRGB_MERGED_UPSAMPLERS(h2v1, mmi)
 DEFINE_SIMD_EXTRGB_MERGED_UPSAMPLERS(h2v2, mmi)
 
+EXTERN(void) jsimd_h2v1_extrgbx_merged_upsample_vis
+  (JDIMENSION output_width, JSAMPIMAGE input_buf,
+   JDIMENSION in_row_group_ctr, JSAMPARRAY output_buf);
+EXTERN(void) jsimd_h2v2_extrgbx_merged_upsample_vis
+  (JDIMENSION output_width, JSAMPIMAGE input_buf,
+   JDIMENSION in_row_group_ctr, JSAMPARRAY output_buf);
+EXTERN(void) jsimd_h2v1_extbgrx_merged_upsample_vis
+  (JDIMENSION output_width, JSAMPIMAGE input_buf,
+   JDIMENSION in_row_group_ctr, JSAMPARRAY output_buf);
+EXTERN(void) jsimd_h2v2_extbgrx_merged_upsample_vis
+  (JDIMENSION output_width, JSAMPIMAGE input_buf,
+   JDIMENSION in_row_group_ctr, JSAMPARRAY output_buf);
+EXTERN(void) jsimd_h2v1_extxbgr_merged_upsample_vis
+  (JDIMENSION output_width, JSAMPIMAGE input_buf,
+   JDIMENSION in_row_group_ctr, JSAMPARRAY output_buf);
+EXTERN(void) jsimd_h2v2_extxbgr_merged_upsample_vis
+  (JDIMENSION output_width, JSAMPIMAGE input_buf,
+   JDIMENSION in_row_group_ctr, JSAMPARRAY output_buf);
+EXTERN(void) jsimd_h2v1_extxrgb_merged_upsample_vis
+  (JDIMENSION output_width, JSAMPIMAGE input_buf,
+   JDIMENSION in_row_group_ctr, JSAMPARRAY output_buf);
+EXTERN(void) jsimd_h2v2_extxrgb_merged_upsample_vis
+  (JDIMENSION output_width, JSAMPIMAGE input_buf,
+   JDIMENSION in_row_group_ctr, JSAMPARRAY output_buf);
+
 
 /* Integer Sample Conversion */
 
