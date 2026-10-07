@@ -597,7 +597,8 @@ if(NOT HAVE_VIS1)
   return()
 endif()
 
-set(SIMD_SOURCES sparc64/jcsample-vis.c sparc64/jdsample-vis.c
+set(SIMD_SOURCES sparc64/jcsample-vis.c sparc64/jdcolor-vis.c
+  sparc64/jdsample-vis.c
   sparc64/jfdctfst-vis.c sparc64/jfdctint-vis.c
   sparc64/jidctfst-vis.c sparc64/jidctint-vis.c
   sparc64/jidctred-vis.c sparc64/jquanti-vis.c)
