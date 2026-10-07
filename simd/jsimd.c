@@ -933,6 +933,11 @@ jsimd_set_convsamp(j_compress_ptr cinfo, convsamp_method_ptr *method)
     *method = jsimd_convsamp_rvv;
     return JSIMD_RVV;
   }
+#elif SIMD_ARCHITECTURE == SPARC
+  if (cinfo->master->simd_support & JSIMD_VIS) {
+    *method = jsimd_convsamp_vis;
+    return JSIMD_VIS;
+  }
 #endif
 
   return JSIMD_NONE;
