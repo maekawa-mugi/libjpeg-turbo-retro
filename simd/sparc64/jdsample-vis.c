@@ -439,3 +439,67 @@ jsimd_h2v2_fancy_upsample_vis(int max_v_samp_factor,
     inrow++;
   }
 }
+
+
+/*
+ * Fancy vertical upsampling for 4:4:0.  fexpand() scales samples by 16.
+ * GSR.scale = 1 makes fpack16() perform the exact final division by four.
+ */
+HIDDEN void
+jsimd_h1v2_fancy_upsample_vis(int max_v_samp_factor,
+                              JDIMENSION downsampled_width,
+                              JSAMPARRAY input_data,
+                              JSAMPARRAY *output_data_ptr)
+{
+  JSAMPARRAY output_data = *output_data_ptr;
+  const __v4hi bias_upper = { 16, 16, 16, 16 };
+  const __v4hi bias_lower = { 32, 32, 32, 32 };
+  int inrow = 0, outrow = 0;
+
+  __builtin_vis_write_gsr(1 << 3);
+
+  while (outrow < max_v_samp_factor) {
+    JSAMPROW above = input_data[inrow - 1];
+    JSAMPROW center = input_data[inrow];
+    JSAMPROW below = input_data[inrow + 1];
+    JSAMPROW out0 = output_data[outrow++];
+    JSAMPROW out1 = output_data[outrow++];
+    JDIMENSION colctr = 0;
+
+    if (((JUINTPTR)above & 3) == 0 &&
+        ((JUINTPTR)center & 3) == 0 &&
+        ((JUINTPTR)below & 3) == 0 &&
+        ((JUINTPTR)out0 & 3) == 0 &&
+        ((JUINTPTR)out1 & 3) == 0) {
+      for (; colctr + 4 <= downsampled_width; colctr += 4) {
+        __v4qi a = *(const __v4qi *)(const void *)(above + colctr);
+        __v4qi c = *(const __v4qi *)(const void *)(center + colctr);
+        __v4qi b = *(const __v4qi *)(const void *)(below + colctr);
+        __v4hi cv = __vis_fexpand(c);
+        __v4hi three = __vis_fpadd16(cv, cv);
+        __v4hi upper, lower;
+
+        three = __vis_fpadd16(three, cv);
+
+        upper = __vis_fpadd16(three, __vis_fexpand(a));
+        upper = __vis_fpadd16(upper, bias_upper);
+        lower = __vis_fpadd16(three, __vis_fexpand(b));
+        lower = __vis_fpadd16(lower, bias_lower);
+
+        *(__v4qi *)(void *)(out0 + colctr) = __vis_fpack16(upper);
+        *(__v4qi *)(void *)(out1 + colctr) = __vis_fpack16(lower);
+      }
+    }
+
+    for (; colctr < downsampled_width; colctr++) {
+      int sample = 3 * GETJSAMPLE(center[colctr]);
+
+      out0[colctr] =
+        (JSAMPLE)((sample + GETJSAMPLE(above[colctr]) + 1) >> 2);
+      out1[colctr] =
+        (JSAMPLE)((sample + GETJSAMPLE(below[colctr]) + 2) >> 2);
+    }
+
+    inrow++;
+  }
+}
