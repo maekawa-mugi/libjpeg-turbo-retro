@@ -122,30 +122,8 @@ DEFINE_SIMD_EXTRGB_COLOR_CONVERTERS(gray, rvv)
 DEFINE_SIMD_EXTRGB_COLOR_CONVERTERS(ycc, mmi)
 DEFINE_SIMD_EXTRGB_COLOR_CONVERTERS(gray, mmi)
 
-EXTERN(void) jsimd_extrgbx_ycc_convert_vis
-  (JDIMENSION img_width, JSAMPARRAY input_buf, JSAMPIMAGE output_buf,
-   JDIMENSION output_row, int num_rows);
-EXTERN(void) jsimd_extbgrx_ycc_convert_vis
-  (JDIMENSION img_width, JSAMPARRAY input_buf, JSAMPIMAGE output_buf,
-   JDIMENSION output_row, int num_rows);
-EXTERN(void) jsimd_extxbgr_ycc_convert_vis
-  (JDIMENSION img_width, JSAMPARRAY input_buf, JSAMPIMAGE output_buf,
-   JDIMENSION output_row, int num_rows);
-EXTERN(void) jsimd_extxrgb_ycc_convert_vis
-  (JDIMENSION img_width, JSAMPARRAY input_buf, JSAMPIMAGE output_buf,
-   JDIMENSION output_row, int num_rows);
-EXTERN(void) jsimd_extrgbx_gray_convert_vis
-  (JDIMENSION img_width, JSAMPARRAY input_buf, JSAMPIMAGE output_buf,
-   JDIMENSION output_row, int num_rows);
-EXTERN(void) jsimd_extbgrx_gray_convert_vis
-  (JDIMENSION img_width, JSAMPARRAY input_buf, JSAMPIMAGE output_buf,
-   JDIMENSION output_row, int num_rows);
-EXTERN(void) jsimd_extxbgr_gray_convert_vis
-  (JDIMENSION img_width, JSAMPARRAY input_buf, JSAMPIMAGE output_buf,
-   JDIMENSION output_row, int num_rows);
-EXTERN(void) jsimd_extxrgb_gray_convert_vis
-  (JDIMENSION img_width, JSAMPARRAY input_buf, JSAMPIMAGE output_buf,
-   JDIMENSION output_row, int num_rows);
+DEFINE_SIMD_EXTRGB_COLOR_CONVERTERS(ycc, vis)
+DEFINE_SIMD_EXTRGB_COLOR_CONVERTERS(gray, vis)
 
 
 /* YCbCr-to-RGB Color Conversion */
@@ -225,23 +203,14 @@ DEFINE_SIMD_EXTRGB_COLOR_DECONVERTERS(rvv)
 
 DEFINE_SIMD_EXTRGB_COLOR_DECONVERTERS(mmi)
 
-EXTERN(void) jsimd_ycc_extrgbx_convert_vis
-  (JDIMENSION out_width, JSAMPIMAGE input_buf, JDIMENSION input_row,
-   JSAMPARRAY output_buf, int num_rows);
-EXTERN(void) jsimd_ycc_extbgrx_convert_vis
-  (JDIMENSION out_width, JSAMPIMAGE input_buf, JDIMENSION input_row,
-   JSAMPARRAY output_buf, int num_rows);
-EXTERN(void) jsimd_ycc_extxbgr_convert_vis
-  (JDIMENSION out_width, JSAMPIMAGE input_buf, JDIMENSION input_row,
-   JSAMPARRAY output_buf, int num_rows);
-EXTERN(void) jsimd_ycc_extxrgb_convert_vis
-  (JDIMENSION out_width, JSAMPIMAGE input_buf, JDIMENSION input_row,
-   JSAMPARRAY output_buf, int num_rows);
+DEFINE_SIMD_EXTRGB_COLOR_DECONVERTERS(vis)
 
 EXTERN(void) jsimd_ycc_rgb565_convert_vis
   (JDIMENSION out_width, JSAMPIMAGE input_buf, JDIMENSION input_row,
    JSAMPARRAY output_buf, int num_rows);
 
+
+/* YCbCr-to-RGB565 Color Conversion */
 
 /* YCbCr-to-RGB565 Color Conversion */
 
@@ -510,30 +479,8 @@ DEFINE_SIMD_EXTRGB_MERGED_UPSAMPLERS(h2v2, rvv)
 DEFINE_SIMD_EXTRGB_MERGED_UPSAMPLERS(h2v1, mmi)
 DEFINE_SIMD_EXTRGB_MERGED_UPSAMPLERS(h2v2, mmi)
 
-EXTERN(void) jsimd_h2v1_extrgbx_merged_upsample_vis
-  (JDIMENSION output_width, JSAMPIMAGE input_buf,
-   JDIMENSION in_row_group_ctr, JSAMPARRAY output_buf);
-EXTERN(void) jsimd_h2v2_extrgbx_merged_upsample_vis
-  (JDIMENSION output_width, JSAMPIMAGE input_buf,
-   JDIMENSION in_row_group_ctr, JSAMPARRAY output_buf);
-EXTERN(void) jsimd_h2v1_extbgrx_merged_upsample_vis
-  (JDIMENSION output_width, JSAMPIMAGE input_buf,
-   JDIMENSION in_row_group_ctr, JSAMPARRAY output_buf);
-EXTERN(void) jsimd_h2v2_extbgrx_merged_upsample_vis
-  (JDIMENSION output_width, JSAMPIMAGE input_buf,
-   JDIMENSION in_row_group_ctr, JSAMPARRAY output_buf);
-EXTERN(void) jsimd_h2v1_extxbgr_merged_upsample_vis
-  (JDIMENSION output_width, JSAMPIMAGE input_buf,
-   JDIMENSION in_row_group_ctr, JSAMPARRAY output_buf);
-EXTERN(void) jsimd_h2v2_extxbgr_merged_upsample_vis
-  (JDIMENSION output_width, JSAMPIMAGE input_buf,
-   JDIMENSION in_row_group_ctr, JSAMPARRAY output_buf);
-EXTERN(void) jsimd_h2v1_extxrgb_merged_upsample_vis
-  (JDIMENSION output_width, JSAMPIMAGE input_buf,
-   JDIMENSION in_row_group_ctr, JSAMPARRAY output_buf);
-EXTERN(void) jsimd_h2v2_extxrgb_merged_upsample_vis
-  (JDIMENSION output_width, JSAMPIMAGE input_buf,
-   JDIMENSION in_row_group_ctr, JSAMPARRAY output_buf);
+DEFINE_SIMD_EXTRGB_MERGED_UPSAMPLERS(h2v1, vis)
+DEFINE_SIMD_EXTRGB_MERGED_UPSAMPLERS(h2v2, vis)
 
 
 /* Integer Sample Conversion */
