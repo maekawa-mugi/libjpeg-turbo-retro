@@ -556,6 +556,53 @@ endif()
 
 
 ###############################################################################
+# SPARC (VIS 1 only)
+###############################################################################
+
+elseif(CPU_TYPE STREQUAL "sparc64" OR CPU_TYPE STREQUAL "sparc")
+
+set(SIMD_ARCHITECTURE SPARC PARENT_SCOPE)
+
+set(CMAKE_REQUIRED_FLAGS -mvis)
+check_c_source_compiles("
+  #include <visintrin.h>
+  int main(void) {
+    __v4qi a = { 1, 2, 3, 4 };
+    __v8qi b = __vis_fpmerge(a, a);
+    return b[0];
+  }" HAVE_VIS1)
+unset(CMAKE_REQUIRED_FLAGS)
+
+if(NOT HAVE_VIS1)
+  simd_fail("SIMD extensions not available for this CPU (SPARC VIS1 required)")
+  return()
+endif()
+
+set(SIMD_SOURCES sparc64/jdsample-vis.c)
+
+# Keep this backend explicitly VIS1-only.  The hot loops are hand-vectorized,
+# so disable compiler auto-vectorization to prevent generation of VIS2+ ops
+# when users pass a newer -mcpu globally.
+set_source_files_properties(${SIMD_SOURCES} PROPERTIES
+  COMPILE_FLAGS "-mvis -O3 -funroll-loops -fno-tree-vectorize -fno-tree-slp-vectorize -fno-strict-aliasing")
+
+if(UNIX)
+  include(CheckSymbolExists)
+  check_symbol_exists(getauxval sys/auxv.h HAVE_GETAUXVAL)
+  if(HAVE_GETAUXVAL)
+    set_source_files_properties(sparc64/jsimdcpu.c PROPERTIES
+      COMPILE_DEFINITIONS HAVE_GETAUXVAL)
+  endif()
+endif()
+
+add_library(simd OBJECT ${SIMD_SOURCES} sparc64/jsimdcpu.c jsimd.c)
+
+if(CMAKE_POSITION_INDEPENDENT_CODE OR ENABLE_SHARED)
+  set_target_properties(simd PROPERTIES POSITION_INDEPENDENT_CODE 1)
+endif()
+
+
+###############################################################################
 # None
 ###############################################################################
 
