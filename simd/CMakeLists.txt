@@ -579,6 +579,14 @@ check_c_source_compiles("
     (void)__vis_alignaddr((void *)0, 2);
     x = __vis_faligndatav4hi(x, y);
     a = __vis_fpack16(x);
+    {
+      __v2hi h = { 1, 2 };
+      __v4qi hb = (__v4qi)h;
+      __v2si p = __vis_fmuld8sux16(hb, h);
+      p = __vis_fpadd32(p, __vis_fmuld8ulx16(hb, h));
+      h = __vis_fpackfix(p);
+      if (h[0] == -1) return 1;
+    }
     z = __vis_fpmerge(a, a);
     return z[0];
   }" HAVE_VIS1)
@@ -590,7 +598,7 @@ if(NOT HAVE_VIS1)
 endif()
 
 set(SIMD_SOURCES sparc64/jcsample-vis.c sparc64/jdsample-vis.c
-  sparc64/jquanti-vis.c)
+  sparc64/jfdctfst-vis.c sparc64/jquanti-vis.c)
 
 # Keep this backend explicitly VIS1-only.  The hot loops are hand-vectorized,
 # so disable compiler auto-vectorization to prevent generation of VIS2+ ops
