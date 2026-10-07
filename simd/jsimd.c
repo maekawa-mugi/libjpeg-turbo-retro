@@ -720,7 +720,8 @@ jsimd_h2v2_fancy_upsample(j_decompress_ptr cinfo, jpeg_component_info *compptr,
 }
 
 
-#if SIMD_ARCHITECTURE == ARM64 || SIMD_ARCHITECTURE == ARM
+#if SIMD_ARCHITECTURE == ARM64 || SIMD_ARCHITECTURE == ARM || \
+    SIMD_ARCHITECTURE == SPARC
 
 HIDDEN unsigned int
 jsimd_set_h1v2_fancy_upsample(j_decompress_ptr cinfo)
@@ -734,10 +735,17 @@ jsimd_set_h1v2_fancy_upsample(j_decompress_ptr cinfo)
   if (!cinfo->upsample)
     return JSIMD_NONE;
 
+#if SIMD_ARCHITECTURE == ARM64 || SIMD_ARCHITECTURE == ARM
   if (cinfo->master->simd_support & JSIMD_NEON) {
     cinfo->upsample->h1v2_upsample_simd = jsimd_h1v2_fancy_upsample_neon;
     return JSIMD_NEON;
   }
+#elif SIMD_ARCHITECTURE == SPARC
+  if (cinfo->master->simd_support & JSIMD_VIS) {
+    cinfo->upsample->h1v2_upsample_simd = jsimd_h1v2_fancy_upsample_vis;
+    return JSIMD_VIS;
+  }
+#endif
 
   return JSIMD_NONE;
 }
