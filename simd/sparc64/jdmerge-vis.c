@@ -268,3 +268,155 @@ DECL_MERGED_FUNCS(extxbgr, 3, 2, 1, 0)
 DECL_MERGED_FUNCS(extxrgb, 1, 2, 3, 0)
 
 #undef DECL_MERGED_FUNCS
+
+
+typedef union {
+  __v4qi v;
+  uint8_t lane[4];
+} vis_4b;
+
+
+static inline void
+store_rgb24_from_deltas(JSAMPLE *out, __v4qi y8,
+                        __v4hi rd, __v4hi gd, __v4hi bd,
+                        int ro, int go, int bo)
+{
+  vis_4b r, g, b;
+  __v4hi y = vis_widen_u8(y8);
+  int i;
+
+  r.v = vis_clamp_u8(__vis_fpadd16(y, rd));
+  g.v = vis_clamp_u8(__vis_fpadd16(y, gd));
+  b.v = vis_clamp_u8(__vis_fpadd16(y, bd));
+
+  for (i = 0; i < 4; i++) {
+    out[3 * i + ro] = r.lane[i];
+    out[3 * i + go] = g.lane[i];
+    out[3 * i + bo] = b.lane[i];
+  }
+}
+
+
+static inline void
+scalar_pixel24(JSAMPLE y, JSAMPLE cbv, JSAMPLE crv, JSAMPLE *dst,
+               int ro, int go, int bo)
+{
+  int cb = GETJSAMPLE(cbv) - CENTERJSAMPLE;
+  int cr = GETJSAMPLE(crv) - CENTERJSAMPLE;
+  int yy = GETJSAMPLE(y);
+
+  dst[ro] = clamp8(yy + descale(cr * F_1_402, 14));
+  dst[go] = clamp8(yy + descale(cb * -F_0_344 + cr * -F_0_714, 15));
+  dst[bo] = clamp8(yy + descale(cb * F_1_772, 14));
+}
+
+
+static void
+h2v1_merged_rgb24_vis(JDIMENSION output_width, JSAMPIMAGE input_buf,
+                      JDIMENSION group, JSAMPARRAY output_buf,
+                      int ro, int go, int bo)
+{
+  JSAMPROW y = input_buf[0][group];
+  JSAMPROW cb = input_buf[1][group];
+  JSAMPROW cr = input_buf[2][group];
+  JSAMPROW out = output_buf[0];
+  JDIMENSION col = 0;
+
+  for (; col + 4 <= output_width; col += 4) {
+    JDIMENSION cc = col >> 1;
+    __v4hi rd, gd, bd;
+    __v4qi y8 = *(const __v4qi *)(const void *)(y + col);
+
+    chroma_deltas2(cb[cc], cb[cc + 1], cr[cc], cr[cc + 1],
+                   &rd, &gd, &bd);
+    store_rgb24_from_deltas(out + 3 * col, y8, rd, gd, bd, ro, go, bo);
+  }
+
+  for (; col < output_width; col++) {
+    JDIMENSION cc = col >> 1;
+
+    scalar_pixel24(y[col], cb[cc], cr[cc], out + 3 * col, ro, go, bo);
+  }
+}
+
+
+static void
+h2v2_merged_rgb24_vis(JDIMENSION output_width, JSAMPIMAGE input_buf,
+                      JDIMENSION group, JSAMPARRAY output_buf,
+                      int ro, int go, int bo)
+{
+  JSAMPROW y0 = input_buf[0][group * 2];
+  JSAMPROW y1 = input_buf[0][group * 2 + 1];
+  JSAMPROW cb = input_buf[1][group];
+  JSAMPROW cr = input_buf[2][group];
+  JSAMPROW out0 = output_buf[0];
+  JSAMPROW out1 = output_buf[1];
+  JDIMENSION col = 0;
+
+  for (; col + 4 <= output_width; col += 4) {
+    JDIMENSION cc = col >> 1;
+    __v4hi rd, gd, bd;
+    __v4qi yv0 = *(const __v4qi *)(const void *)(y0 + col);
+    __v4qi yv1 = *(const __v4qi *)(const void *)(y1 + col);
+
+    chroma_deltas2(cb[cc], cb[cc + 1], cr[cc], cr[cc + 1],
+                   &rd, &gd, &bd);
+    store_rgb24_from_deltas(out0 + 3 * col, yv0, rd, gd, bd, ro, go, bo);
+    store_rgb24_from_deltas(out1 + 3 * col, yv1, rd, gd, bd, ro, go, bo);
+  }
+
+  for (; col < output_width; col++) {
+    JDIMENSION cc = col >> 1;
+
+    scalar_pixel24(y0[col], cb[cc], cr[cc], out0 + 3 * col, ro, go, bo);
+    scalar_pixel24(y1[col], cb[cc], cr[cc], out1 + 3 * col, ro, go, bo);
+  }
+}
+
+
+HIDDEN void
+jsimd_h2v1_merged_upsample_vis(JDIMENSION w, JSAMPIMAGE in,
+                               JDIMENSION g, JSAMPARRAY out)
+{
+  h2v1_merged_rgb24_vis(w, in, g, out, 0, 1, 2);
+}
+
+
+HIDDEN void
+jsimd_h2v2_merged_upsample_vis(JDIMENSION w, JSAMPIMAGE in,
+                               JDIMENSION g, JSAMPARRAY out)
+{
+  h2v2_merged_rgb24_vis(w, in, g, out, 0, 1, 2);
+}
+
+
+HIDDEN void
+jsimd_h2v1_extrgb_merged_upsample_vis(JDIMENSION w, JSAMPIMAGE in,
+                                      JDIMENSION g, JSAMPARRAY out)
+{
+  h2v1_merged_rgb24_vis(w, in, g, out, 0, 1, 2);
+}
+
+
+HIDDEN void
+jsimd_h2v2_extrgb_merged_upsample_vis(JDIMENSION w, JSAMPIMAGE in,
+                                      JDIMENSION g, JSAMPARRAY out)
+{
+  h2v2_merged_rgb24_vis(w, in, g, out, 0, 1, 2);
+}
+
+
+HIDDEN void
+jsimd_h2v1_extbgr_merged_upsample_vis(JDIMENSION w, JSAMPIMAGE in,
+                                      JDIMENSION g, JSAMPARRAY out)
+{
+  h2v1_merged_rgb24_vis(w, in, g, out, 2, 1, 0);
+}
+
+
+HIDDEN void
+jsimd_h2v2_extbgr_merged_upsample_vis(JDIMENSION w, JSAMPIMAGE in,
+                                      JDIMENSION g, JSAMPARRAY out)
+{
+  h2v2_merged_rgb24_vis(w, in, g, out, 2, 1, 0);
+}
