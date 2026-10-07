@@ -1433,6 +1433,11 @@ jsimd_set_idct_2x2(j_decompress_ptr cinfo)
     cinfo->idct->idct_2x2_simd = jsimd_idct_2x2_neon;
     return JSIMD_NEON;
   }
+#elif SIMD_ARCHITECTURE == SPARC
+  if (cinfo->master->simd_support & JSIMD_VIS) {
+    cinfo->idct->idct_2x2_simd = jsimd_idct_2x2_vis;
+    return JSIMD_VIS;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -1481,6 +1486,11 @@ jsimd_set_idct_4x4(j_decompress_ptr cinfo)
   if (cinfo->master->simd_support & JSIMD_NEON) {
     cinfo->idct->idct_4x4_simd = jsimd_idct_4x4_neon;
     return JSIMD_NEON;
+  }
+#elif SIMD_ARCHITECTURE == SPARC
+  if (cinfo->master->simd_support & JSIMD_VIS) {
+    cinfo->idct->idct_4x4_simd = jsimd_idct_4x4_vis;
+    return JSIMD_VIS;
   }
 #endif
 
