@@ -91,6 +91,9 @@ init_simd(j_common_ptr cinfo)
 #elif SIMD_ARCHITECTURE == MIPS64
   if (!GETENV_S(env, 2, "JSIMD_FORCEMMI") && !strcmp(env, "1"))
     simd_support = JSIMD_MMI;
+#elif SIMD_ARCHITECTURE == SPARC
+  if (!GETENV_S(env, 2, "JSIMD_FORCEVIS1") && !strcmp(env, "1"))
+    simd_support = JSIMD_VIS;
 #endif
   if (!GETENV_S(env, 2, "JSIMD_FORCENONE") && !strcmp(env, "1"))
     simd_support = 0;
@@ -493,6 +496,11 @@ jsimd_set_h2v1_upsample(j_decompress_ptr cinfo)
     cinfo->upsample->h2v1_upsample_simd = jsimd_h2v1_upsample_rvv;
     return JSIMD_RVV;
   }
+#elif SIMD_ARCHITECTURE == SPARC
+  if (cinfo->master->simd_support & JSIMD_VIS) {
+    cinfo->upsample->h2v1_upsample_simd = jsimd_h2v1_upsample_vis;
+    return JSIMD_VIS;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -550,6 +558,11 @@ jsimd_set_h2v2_upsample(j_decompress_ptr cinfo)
   if (cinfo->master->simd_support & JSIMD_RVV) {
     cinfo->upsample->h2v2_upsample_simd = jsimd_h2v2_upsample_rvv;
     return JSIMD_RVV;
+  }
+#elif SIMD_ARCHITECTURE == SPARC
+  if (cinfo->master->simd_support & JSIMD_VIS) {
+    cinfo->upsample->h2v2_upsample_simd = jsimd_h2v2_upsample_vis;
+    return JSIMD_VIS;
   }
 #endif
 
