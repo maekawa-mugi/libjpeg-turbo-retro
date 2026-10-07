@@ -598,7 +598,7 @@ if(NOT HAVE_VIS1)
 endif()
 
 set(SIMD_SOURCES sparc64/jcsample-vis.c sparc64/jdsample-vis.c
-  sparc64/jfdctfst-vis.c sparc64/jquanti-vis.c)
+  sparc64/jfdctfst-vis.c sparc64/jfdctint-vis.c sparc64/jquanti-vis.c)
 
 # Keep this backend explicitly VIS1-only.  The hot loops are hand-vectorized,
 # so disable compiler auto-vectorization to prevent generation of VIS2+ ops
