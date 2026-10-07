@@ -301,6 +301,13 @@ EXTERN(void) jsimd_h2v2_upsample_rvv
   (int max_v_samp_factor, JDIMENSION output_width, JSAMPARRAY input_data,
    JSAMPARRAY *output_data_ptr);
 
+EXTERN(void) jsimd_h2v1_upsample_vis
+  (int max_v_samp_factor, JDIMENSION output_width, JSAMPARRAY input_data,
+   JSAMPARRAY *output_data_ptr);
+EXTERN(void) jsimd_h2v2_upsample_vis
+  (int max_v_samp_factor, JDIMENSION output_width, JSAMPARRAY input_data,
+   JSAMPARRAY *output_data_ptr);
+
 
 /* Fancy (Smooth) Upsampling */
 
