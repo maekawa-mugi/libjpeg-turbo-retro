@@ -368,7 +368,8 @@ jsimd_set_ycc_rgb(j_decompress_ptr cinfo)
 HIDDEN unsigned int
 jsimd_set_ycc_rgb565(j_decompress_ptr cinfo)
 {
-#if SIMD_ARCHITECTURE == ARM64 || SIMD_ARCHITECTURE == ARM
+#if SIMD_ARCHITECTURE == ARM64 || SIMD_ARCHITECTURE == ARM || \
+    SIMD_ARCHITECTURE == SPARC
   init_simd((j_common_ptr)cinfo);
 
   if (BITS_IN_JSAMPLE != 8)
@@ -378,10 +379,17 @@ jsimd_set_ycc_rgb565(j_decompress_ptr cinfo)
   if (!cinfo->cconvert)
     return JSIMD_NONE;
 
+#if SIMD_ARCHITECTURE == ARM64 || SIMD_ARCHITECTURE == ARM
   if (cinfo->master->simd_support & JSIMD_NEON) {
     cinfo->cconvert->color_convert_simd = jsimd_ycc_rgb565_convert_neon;
     return JSIMD_NEON;
   }
+#elif SIMD_ARCHITECTURE == SPARC
+  if (cinfo->master->simd_support & JSIMD_VIS) {
+    cinfo->cconvert->color_convert_simd = jsimd_ycc_rgb565_convert_vis;
+    return JSIMD_VIS;
+  }
+#endif
 #endif
 
   return JSIMD_NONE;
