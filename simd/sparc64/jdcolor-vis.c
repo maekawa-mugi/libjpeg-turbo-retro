@@ -268,3 +268,78 @@ jsimd_ycc_extxrgb_convert_vis(JDIMENSION output_width, JSAMPIMAGE input_buf,
   ycc_rgbx_vis(output_width, input_buf, input_row, output_buf, num_rows,
                1, 2, 3, 0);
 }
+
+
+typedef union {
+  __v4qi v;
+  uint8_t lane[4];
+} vis_4b;
+
+
+/* Store RGB565 in libjpeg-turbo's byte order, independent of host endian. */
+static inline void
+store_rgb565(JSAMPLE *dst, uint8_t r, uint8_t g, uint8_t b)
+{
+  uint16_t pixel = (uint16_t)((((uint16_t)r << 8) & 0xf800U) |
+                              (((uint16_t)g << 3) & 0x07e0U) |
+                              ((uint16_t)b >> 3));
+
+  dst[0] = (JSAMPLE)(pixel & 0xffU);
+  dst[1] = (JSAMPLE)(pixel >> 8);
+}
+
+
+HIDDEN void
+jsimd_ycc_rgb565_convert_vis(JDIMENSION output_width, JSAMPIMAGE input_buf,
+                             JDIMENSION input_row, JSAMPARRAY output_buf,
+                             int num_rows)
+{
+  const __v4hi center = { CENTERJSAMPLE, CENTERJSAMPLE,
+                          CENTERJSAMPLE, CENTERJSAMPLE };
+
+  while (--num_rows >= 0) {
+    JSAMPROW yptr = input_buf[0][input_row];
+    JSAMPROW cbptr = input_buf[1][input_row];
+    JSAMPROW crptr = input_buf[2][input_row];
+    JSAMPROW out = *output_buf++;
+    JDIMENSION col = 0;
+
+    input_row++;
+
+    for (; col + 4 <= output_width; col += 4) {
+      __v4qi y8 = *(const __v4qi *)(const void *)(yptr + col);
+      __v4qi cb8 = *(const __v4qi *)(const void *)(cbptr + col);
+      __v4qi cr8 = *(const __v4qi *)(const void *)(crptr + col);
+      __v4hi y = vis_widen_u8(y8);
+      __v4hi cb = __vis_fpsub16(vis_widen_u8(cb8), center);
+      __v4hi cr = __vis_fpsub16(vis_widen_u8(cr8), center);
+      __v4hi rd = vis_round_shift(vis_mul16_const(cr, F_1_402), 14);
+      __v4hi gd =
+        vis_round_shift(vis_addw(vis_mul16_const(cb, -F_0_344),
+                                 vis_mul16_const(cr, -F_0_714)), 15);
+      __v4hi bd = vis_round_shift(vis_mul16_const(cb, F_1_772), 14);
+      vis_4b r, g, b;
+      int lane;
+
+      r.v = vis_clamp_u8(__vis_fpadd16(y, rd));
+      g.v = vis_clamp_u8(__vis_fpadd16(y, gd));
+      b.v = vis_clamp_u8(__vis_fpadd16(y, bd));
+
+      for (lane = 0; lane < 4; lane++)
+        store_rgb565(out + 2 * (col + lane),
+                     r.lane[lane], g.lane[lane], b.lane[lane]);
+    }
+
+    for (; col < output_width; col++) {
+      int cb = GETJSAMPLE(cbptr[col]) - CENTERJSAMPLE;
+      int cr = GETJSAMPLE(crptr[col]) - CENTERJSAMPLE;
+      int yy = GETJSAMPLE(yptr[col]);
+      uint8_t r = clamp8(yy + descale(cr * F_1_402, 14));
+      uint8_t g = clamp8(yy + descale(cb * -F_0_344 +
+                                      cr * -F_0_714, 15));
+      uint8_t b = clamp8(yy + descale(cb * F_1_772, 14));
+
+      store_rgb565(out + 2 * col, r, g, b);
+    }
+  }
+}
