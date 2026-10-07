@@ -200,6 +200,19 @@ DEFINE_SIMD_EXTRGB_COLOR_DECONVERTERS(rvv)
 
 DEFINE_SIMD_EXTRGB_COLOR_DECONVERTERS(mmi)
 
+EXTERN(void) jsimd_ycc_extrgbx_convert_vis
+  (JDIMENSION out_width, JSAMPIMAGE input_buf, JDIMENSION input_row,
+   JSAMPARRAY output_buf, int num_rows);
+EXTERN(void) jsimd_ycc_extbgrx_convert_vis
+  (JDIMENSION out_width, JSAMPIMAGE input_buf, JDIMENSION input_row,
+   JSAMPARRAY output_buf, int num_rows);
+EXTERN(void) jsimd_ycc_extxbgr_convert_vis
+  (JDIMENSION out_width, JSAMPIMAGE input_buf, JDIMENSION input_row,
+   JSAMPARRAY output_buf, int num_rows);
+EXTERN(void) jsimd_ycc_extxrgb_convert_vis
+  (JDIMENSION out_width, JSAMPIMAGE input_buf, JDIMENSION input_row,
+   JSAMPARRAY output_buf, int num_rows);
+
 
 /* YCbCr-to-RGB565 Color Conversion */
 
