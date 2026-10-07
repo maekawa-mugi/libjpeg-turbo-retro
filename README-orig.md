@@ -101,7 +101,7 @@ colorspace constants:
     JCS_EXT_XBGR  /* x/blue/green/red */
     JCS_EXT_XRGB  /* x/red/green/blue */
     JCS_EXT_RGBA  /* red/green/blue/alpha */
-    JCS_EXT_BGRA  /* blue/green/alpha */
+    JCS_EXT_BGRA  /* blue/green/red/alpha */
     JCS_EXT_ABGR  /* alpha/blue/green/red */
     JCS_EXT_ARGB  /* alpha/red/green/blue */
 
@@ -269,8 +269,8 @@ don't, and it allows those functions to be provided in the "official"
 libjpeg-turbo binaries.
 
 Note that, on most Un*x systems, the dynamic linker will not look for a
-function in a library until it is actually used.  Thus, if a program is built
-against libjpeg-turbo 1.3+ and uses `jpeg_mem_src()` or
+function in a library until that function is actually used.  Thus, if a program
+is built against libjpeg-turbo 1.3+ and uses `jpeg_mem_src()` or
 `jpeg_mem_dest()`, that program will not fail if run against an older version
 of libjpeg-turbo or against libjpeg v7- until the program actually tries to
 call `jpeg_mem_src()` or `jpeg_mem_dest()`.  Such is not the case on Windows.
