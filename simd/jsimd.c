@@ -167,6 +167,29 @@ jsimd_set_rgb_ycc(j_compress_ptr cinfo)
     SET_SIMD_EXTRGB_COLOR_CONVERTER(ycc, mmi);
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == SPARC
+  if (cinfo->master->simd_support & JSIMD_VIS) {
+    switch (cinfo->in_color_space) {
+      case JCS_EXT_RGBX:
+      case JCS_EXT_RGBA:
+        cinfo->cconvert->color_convert_simd = jsimd_extrgbx_ycc_convert_vis;
+        return JSIMD_VIS;
+      case JCS_EXT_BGRX:
+      case JCS_EXT_BGRA:
+        cinfo->cconvert->color_convert_simd = jsimd_extbgrx_ycc_convert_vis;
+        return JSIMD_VIS;
+      case JCS_EXT_XBGR:
+      case JCS_EXT_ABGR:
+        cinfo->cconvert->color_convert_simd = jsimd_extxbgr_ycc_convert_vis;
+        return JSIMD_VIS;
+      case JCS_EXT_XRGB:
+      case JCS_EXT_ARGB:
+        cinfo->cconvert->color_convert_simd = jsimd_extxrgb_ycc_convert_vis;
+        return JSIMD_VIS;
+      default:
+        break;
+    }
+  }
 #endif
 
   return JSIMD_NONE;
@@ -223,6 +246,29 @@ jsimd_set_rgb_gray(j_compress_ptr cinfo)
   if (cinfo->master->simd_support & JSIMD_MMI) {
     SET_SIMD_EXTRGB_COLOR_CONVERTER(gray, mmi);
     return JSIMD_MMI;
+  }
+#elif SIMD_ARCHITECTURE == SPARC
+  if (cinfo->master->simd_support & JSIMD_VIS) {
+    switch (cinfo->in_color_space) {
+      case JCS_EXT_RGBX:
+      case JCS_EXT_RGBA:
+        cinfo->cconvert->color_convert_simd = jsimd_extrgbx_gray_convert_vis;
+        return JSIMD_VIS;
+      case JCS_EXT_BGRX:
+      case JCS_EXT_BGRA:
+        cinfo->cconvert->color_convert_simd = jsimd_extbgrx_gray_convert_vis;
+        return JSIMD_VIS;
+      case JCS_EXT_XBGR:
+      case JCS_EXT_ABGR:
+        cinfo->cconvert->color_convert_simd = jsimd_extxbgr_gray_convert_vis;
+        return JSIMD_VIS;
+      case JCS_EXT_XRGB:
+      case JCS_EXT_ARGB:
+        cinfo->cconvert->color_convert_simd = jsimd_extxrgb_gray_convert_vis;
+        return JSIMD_VIS;
+      default:
+        break;
+    }
   }
 #endif
 
