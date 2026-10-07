@@ -675,6 +675,13 @@ EXTERN(void) jsimd_idct_4x4_neon
   (void *dct_table, JCOEFPTR coef_block, JSAMPARRAY output_buf,
    JDIMENSION output_col);
 
+EXTERN(void) jsimd_idct_2x2_vis
+  (void *dct_table, JCOEFPTR coef_block, JSAMPARRAY output_buf,
+   JDIMENSION output_col);
+EXTERN(void) jsimd_idct_4x4_vis
+  (void *dct_table, JCOEFPTR coef_block, JSAMPARRAY output_buf,
+   JDIMENSION output_col);
+
 
 /* Huffman Encoding */
 
