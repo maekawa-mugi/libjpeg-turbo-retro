@@ -629,6 +629,11 @@ jsimd_set_h2v1_fancy_upsample(j_decompress_ptr cinfo)
     cinfo->upsample->h2v1_upsample_simd = jsimd_h2v1_fancy_upsample_mmi;
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == SPARC
+  if (cinfo->master->simd_support & JSIMD_VIS) {
+    cinfo->upsample->h2v1_upsample_simd = jsimd_h2v1_fancy_upsample_vis;
+    return JSIMD_VIS;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -693,6 +698,11 @@ jsimd_set_h2v2_fancy_upsample(j_decompress_ptr cinfo)
   if (cinfo->master->simd_support & JSIMD_MMI) {
     cinfo->upsample->h2v2_upsample_simd = jsimd_h2v2_fancy_upsample_mmi;
     return JSIMD_MMI;
+  }
+#elif SIMD_ARCHITECTURE == SPARC
+  if (cinfo->master->simd_support & JSIMD_VIS) {
+    cinfo->upsample->h2v2_upsample_simd = jsimd_h2v2_fancy_upsample_vis;
+    return JSIMD_VIS;
   }
 #endif
 
