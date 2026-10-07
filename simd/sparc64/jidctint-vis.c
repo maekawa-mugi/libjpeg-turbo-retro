@@ -181,6 +181,29 @@ jsimd_idct_islow_vis(void *dct_table, JCOEFPTR coef_block,
     __v4hi r5 = vis_dequant4(coef_block, quant, 5, col);
     __v4hi r6 = vis_dequant4(coef_block, quant, 6, col);
     __v4hi r7 = vis_dequant4(coef_block, quant, 7, col);
+    const __v4hi zero = { 0, 0, 0, 0 };
+
+    /*
+     * Typical JPEG blocks are sparse.  If all four columns in this VIS group
+     * contain DC only, bypass every fixed-point multiply in the column pass.
+     */
+    if (!(__vis_fcmpne16(r1, zero) | __vis_fcmpne16(r2, zero) |
+          __vis_fcmpne16(r3, zero) | __vis_fcmpne16(r4, zero) |
+          __vis_fcmpne16(r5, zero) | __vis_fcmpne16(r6, zero) |
+          __vis_fcmpne16(r7, zero))) {
+      __v4hi dc = __vis_fpadd16(r0, r0);
+
+      dc = __vis_fpadd16(dc, dc);
+      vis_store4(workspace, 0, col, dc);
+      vis_store4(workspace, 1, col, dc);
+      vis_store4(workspace, 2, col, dc);
+      vis_store4(workspace, 3, col, dc);
+      vis_store4(workspace, 4, col, dc);
+      vis_store4(workspace, 5, col, dc);
+      vis_store4(workspace, 6, col, dc);
+      vis_store4(workspace, 7, col, dc);
+      continue;
+    }
 
     __v4hi z2v = r2;
     __v4hi z3v = r6;
