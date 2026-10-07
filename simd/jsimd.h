@@ -84,7 +84,8 @@ EXTERN(void) jsimd_h2v2_fancy_upsample(j_decompress_ptr cinfo,
                                        JSAMPARRAY input_data,
                                        JSAMPARRAY *output_data_ptr);
 
-#if SIMD_ARCHITECTURE == ARM64 || SIMD_ARCHITECTURE == ARM
+#if SIMD_ARCHITECTURE == ARM64 || SIMD_ARCHITECTURE == ARM || \
+    SIMD_ARCHITECTURE == SPARC
 EXTERN(unsigned int) jsimd_set_h1v2_fancy_upsample(j_decompress_ptr cinfo);
 EXTERN(void) jsimd_h1v2_fancy_upsample(j_decompress_ptr cinfo,
                                        jpeg_component_info *compptr,
