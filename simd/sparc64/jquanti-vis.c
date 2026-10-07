@@ -68,15 +68,18 @@ jsimd_quantize_vis(JCOEFPTR coef_block, DCTELEM *divisors,
 
   for (i = 0; i < DCTSIZE2; i += 4) {
     vis_quant4 in, neg, absv, cv, sum;
-    unsigned long negmask;
     int lane;
 
     in.v = *(__v4hi *)(void *)(workspace + i);
     neg.v = __vis_fpsub16(zero, in.v);
-    negmask = __vis_fcmpgt16(zero, in.v);
 
+    /*
+     * Do not depend on the architecture-specific compare-mask bit ordering.
+     * The negation is still four-lane VIS; scalar sign selection is exact and
+     * folds into the scalar multiply/variable-shift glue below.
+     */
     for (lane = 0; lane < 4; lane++)
-      absv.u[lane] = (negmask & (1UL << lane)) ? neg.u[lane] : in.u[lane];
+      absv.u[lane] = in.s[lane] < 0 ? neg.u[lane] : in.u[lane];
 
     cv.u[0] = corr[i + 0];
     cv.u[1] = corr[i + 1];
@@ -89,7 +92,7 @@ jsimd_quantize_vis(JCOEFPTR coef_block, DCTELEM *divisors,
       int16_t q = (int16_t)(product >> (16 + shift[i + lane]));
 
       coef_block[i + lane] =
-        (negmask & (1UL << lane)) ? (JCOEF)-q : (JCOEF)q;
+        in.s[lane] < 0 ? (JCOEF)-q : (JCOEF)q;
     }
   }
 }
