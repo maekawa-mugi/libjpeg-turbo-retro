@@ -568,8 +568,18 @@ check_c_source_compiles("
   #include <visintrin.h>
   int main(void) {
     __v4qi a = { 1, 2, 3, 4 };
-    __v8qi b = __vis_fpmerge(a, a);
-    return b[0];
+    __v2hi k = { 2048, 2048 };
+    __v4hi x, y;
+    __v8qi z;
+    __builtin_vis_write_gsr(1 << 3);
+    x = __vis_fexpand(a);
+    y = __vis_fmul8x16au(a, k);
+    x = __vis_fpadd16(x, y);
+    (void)__vis_alignaddr((void *)0, 2);
+    x = __vis_faligndatav4hi(x, y);
+    a = __vis_fpack16(x);
+    z = __vis_fpmerge(a, a);
+    return z[0];
   }" HAVE_VIS1)
 unset(CMAKE_REQUIRED_FLAGS)
 
