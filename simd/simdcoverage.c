@@ -45,6 +45,8 @@ static const char *instrset_name(int instrset) {
       return "AVX2";
     case JSIMD_MMI:
       return "MMI";
+    case JSIMD_VIS:
+      return "VIS1";
     default:
       return "Unknown";
   }
@@ -122,7 +124,8 @@ int main(void)
   D_COVERAGE_TEST(jsimd_set_h2v2_upsample);
   D_COVERAGE_TEST(jsimd_set_h2v1_fancy_upsample);
   D_COVERAGE_TEST(jsimd_set_h2v2_fancy_upsample);
-#if SIMD_ARCHITECTURE == ARM || SIMD_ARCHITECTURE == ARM64
+#if SIMD_ARCHITECTURE == ARM || SIMD_ARCHITECTURE == ARM64 || \
+    SIMD_ARCHITECTURE == SPARC
   D_COVERAGE_TEST(jsimd_set_h1v2_fancy_upsample);
 #endif
   D_COVERAGE_TEST(jsimd_set_h2v1_merged_upsample);
