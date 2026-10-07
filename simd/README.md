@@ -61,6 +61,24 @@ Refer to <https://libjpeg-turbo.org/About/SIMDCoverage> for a list of SIMD
 modules that are implemented for the algorithms above using specific SIMD
 instruction sets.
 
+SPARC VIS1 Backend
+------------------
+
+The SPARC backend is intentionally restricted to first-generation VIS
+instructions.  It does not use VIS2 `bshuffle` or GSR.MASK operations, so the
+same SIMD objects can run on VIS1-capable UltraSPARC systems.
+
+The VIS1 backend accelerates the integer lossy JPEG pipeline, including color
+conversion, H2V1/H2V2 sampling, integer sample conversion, integer FDCT/IDCT,
+integer quantization, reduced IDCT, and merged upsampling.  Operations for
+which VIS1 lacks an efficient lane primitive use small scalar glue around VIS1
+arithmetic.  In particular, RGB24 gather/store, RGB565 packing, quantizer
+variable shifts, and the smallest reduced-IDCT cases are hybrid paths.
+
+Floating-point DCT/sample-conversion/quantization and Huffman SIMD remain on
+the existing scalar implementation on SPARC.  Those operations are not
+force-mapped to VIS1.
+
 Legacy features are features that were designed to work around hardware
 performance limitations that no longer exist.  They generally have little or no
 utility on modern hardware and are retained only for backward compatibility
@@ -106,6 +124,8 @@ modules:
 - `JSIMD_FORCEMMI=1` (Loongson) force-enables the MMI SIMD modules, bypassing
   **/proc/cpuinfo** feature detection (which may be unreliable in QEMU and
   other emulation/virtualization environments.)
+- `JSIMD_FORCEVIS1=1` (SPARC) force-enables the VIS1 SIMD modules,
+  bypassing run-time VIS capability detection.
 
 The **simdcoverage** program reports which SIMD modules will be used, taking
 into account the current architecture, detected CPU features, and
