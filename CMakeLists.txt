@@ -138,6 +138,12 @@ elseif(CMAKE_SYSTEM_PROCESSOR_LC STREQUAL "aarch64" OR
 elseif(CMAKE_SYSTEM_PROCESSOR_LC MATCHES "^ppc" OR
   CMAKE_SYSTEM_PROCESSOR_LC MATCHES "^powerpc")
   set(CPU_TYPE powerpc)
+elseif(CMAKE_SYSTEM_PROCESSOR_LC MATCHES "^sparc")
+  if(BITS EQUAL 64)
+    set(CPU_TYPE sparc64)
+  else()
+    set(CPU_TYPE sparc)
+  endif()
 else()
   set(CPU_TYPE ${CMAKE_SYSTEM_PROCESSOR_LC})
 endif()
