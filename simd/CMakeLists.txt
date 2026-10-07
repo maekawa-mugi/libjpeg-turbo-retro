@@ -563,7 +563,7 @@ elseif(CPU_TYPE STREQUAL "sparc64" OR CPU_TYPE STREQUAL "sparc")
 
 set(SIMD_ARCHITECTURE SPARC PARENT_SCOPE)
 
-set(CMAKE_REQUIRED_FLAGS -mvis)
+set(CMAKE_REQUIRED_FLAGS "-mcpu=ultrasparc -mvis")
 check_c_source_compiles("
   #include <visintrin.h>
   int main(void) {
@@ -584,7 +584,7 @@ set(SIMD_SOURCES sparc64/jdsample-vis.c)
 # so disable compiler auto-vectorization to prevent generation of VIS2+ ops
 # when users pass a newer -mcpu globally.
 set_source_files_properties(${SIMD_SOURCES} PROPERTIES
-  COMPILE_FLAGS "-mvis -O3 -funroll-loops -fno-tree-vectorize -fno-tree-slp-vectorize -fno-strict-aliasing")
+  COMPILE_FLAGS "-mcpu=ultrasparc -mvis -O3 -funroll-loops -fno-tree-vectorize -fno-tree-slp-vectorize -fno-strict-aliasing")
 
 if(UNIX)
   include(CheckSymbolExists)
