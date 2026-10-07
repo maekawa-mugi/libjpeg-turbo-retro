@@ -290,6 +290,29 @@ jsimd_set_ycc_rgb(j_decompress_ptr cinfo)
     SET_SIMD_EXTRGB_COLOR_DECONVERTER(mmi);
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == SPARC
+  if (cinfo->master->simd_support & JSIMD_VIS) {
+    switch (cinfo->out_color_space) {
+      case JCS_EXT_RGBX:
+      case JCS_EXT_RGBA:
+        cinfo->cconvert->color_convert_simd = jsimd_ycc_extrgbx_convert_vis;
+        return JSIMD_VIS;
+      case JCS_EXT_BGRX:
+      case JCS_EXT_BGRA:
+        cinfo->cconvert->color_convert_simd = jsimd_ycc_extbgrx_convert_vis;
+        return JSIMD_VIS;
+      case JCS_EXT_XBGR:
+      case JCS_EXT_ABGR:
+        cinfo->cconvert->color_convert_simd = jsimd_ycc_extxbgr_convert_vis;
+        return JSIMD_VIS;
+      case JCS_EXT_XRGB:
+      case JCS_EXT_ARGB:
+        cinfo->cconvert->color_convert_simd = jsimd_ycc_extxrgb_convert_vis;
+        return JSIMD_VIS;
+      default:
+        break;
+    }
+  }
 #endif
 
   return JSIMD_NONE;
