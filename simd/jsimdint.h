@@ -528,6 +528,8 @@ EXTERN(void) jsimd_fdct_islow_rvv(DCTELEM *data);
 EXTERN(void) jsimd_fdct_ifast_rvv(DCTELEM *data);
 
 EXTERN(void) jsimd_fdct_islow_mmi(DCTELEM *data);
+
+EXTERN(void) jsimd_fdct_islow_vis(DCTELEM *data);
 EXTERN(void) jsimd_fdct_ifast_mmi(DCTELEM *data);
 
 EXTERN(void) jsimd_fdct_ifast_vis(DCTELEM *data);
