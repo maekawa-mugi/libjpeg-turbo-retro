@@ -1033,6 +1033,11 @@ jsimd_set_fdct_islow(j_compress_ptr cinfo, forward_DCT_method_ptr *method)
     *method = jsimd_fdct_islow_mmi;
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == SPARC
+  if (cinfo->master->simd_support & JSIMD_VIS) {
+    *method = jsimd_fdct_islow_vis;
+    return JSIMD_VIS;
+  }
 #endif
 
   return JSIMD_NONE;
