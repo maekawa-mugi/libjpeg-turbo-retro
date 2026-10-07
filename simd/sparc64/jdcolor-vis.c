@@ -343,3 +343,96 @@ jsimd_ycc_rgb565_convert_vis(JDIMENSION output_width, JSAMPIMAGE input_buf,
     }
   }
 }
+
+
+static inline void
+store_rgb24_4(JSAMPLE *dst, __v4qi r8, __v4qi g8, __v4qi b8,
+              int ro, int go, int bo)
+{
+  vis_4b r, g, b;
+  int i;
+
+  r.v = r8;
+  g.v = g8;
+  b.v = b8;
+
+  for (i = 0; i < 4; i++) {
+    dst[3 * i + ro] = r.lane[i];
+    dst[3 * i + go] = g.lane[i];
+    dst[3 * i + bo] = b.lane[i];
+  }
+}
+
+
+static void
+ycc_rgb24_vis(JDIMENSION output_width, JSAMPIMAGE input_buf,
+              JDIMENSION input_row, JSAMPARRAY output_buf, int num_rows,
+              int ro, int go, int bo)
+{
+  const __v4hi center = { CENTERJSAMPLE, CENTERJSAMPLE,
+                          CENTERJSAMPLE, CENTERJSAMPLE };
+
+  while (--num_rows >= 0) {
+    JSAMPROW yptr = input_buf[0][input_row];
+    JSAMPROW cbptr = input_buf[1][input_row];
+    JSAMPROW crptr = input_buf[2][input_row];
+    JSAMPROW out = *output_buf++;
+    JDIMENSION col = 0;
+
+    input_row++;
+
+    for (; col + 4 <= output_width; col += 4) {
+      __v4qi y8 = *(const __v4qi *)(const void *)(yptr + col);
+      __v4qi cb8 = *(const __v4qi *)(const void *)(cbptr + col);
+      __v4qi cr8 = *(const __v4qi *)(const void *)(crptr + col);
+      __v4hi y = vis_widen_u8(y8);
+      __v4hi cb = __vis_fpsub16(vis_widen_u8(cb8), center);
+      __v4hi cr = __vis_fpsub16(vis_widen_u8(cr8), center);
+      __v4hi rd = vis_round_shift(vis_mul16_const(cr, F_1_402), 14);
+      __v4hi gd =
+        vis_round_shift(vis_addw(vis_mul16_const(cb, -F_0_344),
+                                 vis_mul16_const(cr, -F_0_714)), 15);
+      __v4hi bd = vis_round_shift(vis_mul16_const(cb, F_1_772), 14);
+      __v4qi r8 = vis_clamp_u8(__vis_fpadd16(y, rd));
+      __v4qi g8 = vis_clamp_u8(__vis_fpadd16(y, gd));
+      __v4qi b8 = vis_clamp_u8(__vis_fpadd16(y, bd));
+
+      store_rgb24_4(out + 3 * col, r8, g8, b8, ro, go, bo);
+    }
+
+    for (; col < output_width; col++) {
+      int cb = GETJSAMPLE(cbptr[col]) - CENTERJSAMPLE;
+      int cr = GETJSAMPLE(crptr[col]) - CENTERJSAMPLE;
+      int yy = GETJSAMPLE(yptr[col]);
+      JSAMPROW p = out + 3 * col;
+
+      p[ro] = clamp8(yy + descale(cr * F_1_402, 14));
+      p[go] = clamp8(yy + descale(cb * -F_0_344 + cr * -F_0_714, 15));
+      p[bo] = clamp8(yy + descale(cb * F_1_772, 14));
+    }
+  }
+}
+
+
+HIDDEN void
+jsimd_ycc_rgb_convert_vis(JDIMENSION w, JSAMPIMAGE in, JDIMENSION row,
+                          JSAMPARRAY out, int nr)
+{
+  ycc_rgb24_vis(w, in, row, out, nr, 0, 1, 2);
+}
+
+
+HIDDEN void
+jsimd_ycc_extrgb_convert_vis(JDIMENSION w, JSAMPIMAGE in, JDIMENSION row,
+                             JSAMPARRAY out, int nr)
+{
+  ycc_rgb24_vis(w, in, row, out, nr, 0, 1, 2);
+}
+
+
+HIDDEN void
+jsimd_ycc_extbgr_convert_vis(JDIMENSION w, JSAMPIMAGE in, JDIMENSION row,
+                             JSAMPARRAY out, int nr)
+{
+  ycc_rgb24_vis(w, in, row, out, nr, 2, 1, 0);
+}
