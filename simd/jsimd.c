@@ -1323,6 +1323,11 @@ jsimd_set_idct_ifast(j_decompress_ptr cinfo)
     cinfo->idct->idct_simd = jsimd_idct_ifast_mmi;
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == SPARC
+  if (cinfo->master->simd_support & JSIMD_VIS) {
+    cinfo->idct->idct_simd = jsimd_idct_ifast_vis;
+    return JSIMD_VIS;
+  }
 #endif
 
   return JSIMD_NONE;
