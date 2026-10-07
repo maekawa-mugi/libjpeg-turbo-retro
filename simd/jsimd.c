@@ -1079,6 +1079,11 @@ jsimd_set_fdct_ifast(j_compress_ptr cinfo, forward_DCT_method_ptr *method)
     *method = jsimd_fdct_ifast_mmi;
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == SPARC
+  if (cinfo->master->simd_support & JSIMD_VIS) {
+    *method = jsimd_fdct_ifast_vis;
+    return JSIMD_VIS;
+  }
 #endif
 
   return JSIMD_NONE;
