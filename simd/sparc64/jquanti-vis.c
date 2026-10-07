@@ -41,3 +41,55 @@ jsimd_convsamp_vis(JSAMPARRAY sample_data, JDIMENSION start_col,
     }
   }
 }
+
+
+typedef union {
+  __v4hi v;
+  int16_t s[4];
+  uint16_t u[4];
+} vis_quant4;
+
+
+/*
+ * VIS1 has no unsigned 16x16 high-half multiply and no per-lane variable
+ * shift.  Keep those two operations in integer registers, but vectorize sign
+ * handling and correction addition four coefficients at a time.  This is
+ * deliberately exact rather than approximating the reciprocal arithmetic.
+ */
+HIDDEN void
+jsimd_quantize_vis(JCOEFPTR coef_block, DCTELEM *divisors,
+                   DCTELEM *workspace)
+{
+  UDCTELEM *recip = (UDCTELEM *)divisors;
+  UDCTELEM *corr = (UDCTELEM *)divisors + DCTSIZE2;
+  DCTELEM *shift = divisors + 3 * DCTSIZE2;
+  const __v4hi zero = { 0, 0, 0, 0 };
+  int i;
+
+  for (i = 0; i < DCTSIZE2; i += 4) {
+    vis_quant4 in, neg, absv, cv, sum;
+    unsigned long negmask;
+    int lane;
+
+    in.v = *(__v4hi *)(void *)(workspace + i);
+    neg.v = __vis_fpsub16(zero, in.v);
+    negmask = __vis_fcmpgt16(zero, in.v);
+
+    for (lane = 0; lane < 4; lane++)
+      absv.u[lane] = (negmask & (1UL << lane)) ? neg.u[lane] : in.u[lane];
+
+    cv.u[0] = corr[i + 0];
+    cv.u[1] = corr[i + 1];
+    cv.u[2] = corr[i + 2];
+    cv.u[3] = corr[i + 3];
+    sum.v = __vis_fpadd16(absv.v, cv.v);
+
+    for (lane = 0; lane < 4; lane++) {
+      uint32_t product = (uint32_t)sum.u[lane] * recip[i + lane];
+      int16_t q = (int16_t)(product >> (16 + shift[i + lane]));
+
+      coef_block[i + lane] =
+        (negmask & (1UL << lane)) ? (JCOEF)-q : (JCOEF)q;
+    }
+  }
+}
