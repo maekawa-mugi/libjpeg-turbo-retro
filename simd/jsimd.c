@@ -169,26 +169,8 @@ jsimd_set_rgb_ycc(j_compress_ptr cinfo)
   }
 #elif SIMD_ARCHITECTURE == SPARC
   if (cinfo->master->simd_support & JSIMD_VIS) {
-    switch (cinfo->in_color_space) {
-      case JCS_EXT_RGBX:
-      case JCS_EXT_RGBA:
-        cinfo->cconvert->color_convert_simd = jsimd_extrgbx_ycc_convert_vis;
-        return JSIMD_VIS;
-      case JCS_EXT_BGRX:
-      case JCS_EXT_BGRA:
-        cinfo->cconvert->color_convert_simd = jsimd_extbgrx_ycc_convert_vis;
-        return JSIMD_VIS;
-      case JCS_EXT_XBGR:
-      case JCS_EXT_ABGR:
-        cinfo->cconvert->color_convert_simd = jsimd_extxbgr_ycc_convert_vis;
-        return JSIMD_VIS;
-      case JCS_EXT_XRGB:
-      case JCS_EXT_ARGB:
-        cinfo->cconvert->color_convert_simd = jsimd_extxrgb_ycc_convert_vis;
-        return JSIMD_VIS;
-      default:
-        break;
-    }
+    SET_SIMD_EXTRGB_COLOR_CONVERTER(ycc, vis);
+    return JSIMD_VIS;
   }
 #endif
 
@@ -249,26 +231,8 @@ jsimd_set_rgb_gray(j_compress_ptr cinfo)
   }
 #elif SIMD_ARCHITECTURE == SPARC
   if (cinfo->master->simd_support & JSIMD_VIS) {
-    switch (cinfo->in_color_space) {
-      case JCS_EXT_RGBX:
-      case JCS_EXT_RGBA:
-        cinfo->cconvert->color_convert_simd = jsimd_extrgbx_gray_convert_vis;
-        return JSIMD_VIS;
-      case JCS_EXT_BGRX:
-      case JCS_EXT_BGRA:
-        cinfo->cconvert->color_convert_simd = jsimd_extbgrx_gray_convert_vis;
-        return JSIMD_VIS;
-      case JCS_EXT_XBGR:
-      case JCS_EXT_ABGR:
-        cinfo->cconvert->color_convert_simd = jsimd_extxbgr_gray_convert_vis;
-        return JSIMD_VIS;
-      case JCS_EXT_XRGB:
-      case JCS_EXT_ARGB:
-        cinfo->cconvert->color_convert_simd = jsimd_extxrgb_gray_convert_vis;
-        return JSIMD_VIS;
-      default:
-        break;
-    }
+    SET_SIMD_EXTRGB_COLOR_CONVERTER(gray, vis);
+    return JSIMD_VIS;
   }
 #endif
 
@@ -338,26 +302,8 @@ jsimd_set_ycc_rgb(j_decompress_ptr cinfo)
   }
 #elif SIMD_ARCHITECTURE == SPARC
   if (cinfo->master->simd_support & JSIMD_VIS) {
-    switch (cinfo->out_color_space) {
-      case JCS_EXT_RGBX:
-      case JCS_EXT_RGBA:
-        cinfo->cconvert->color_convert_simd = jsimd_ycc_extrgbx_convert_vis;
-        return JSIMD_VIS;
-      case JCS_EXT_BGRX:
-      case JCS_EXT_BGRA:
-        cinfo->cconvert->color_convert_simd = jsimd_ycc_extbgrx_convert_vis;
-        return JSIMD_VIS;
-      case JCS_EXT_XBGR:
-      case JCS_EXT_ABGR:
-        cinfo->cconvert->color_convert_simd = jsimd_ycc_extxbgr_convert_vis;
-        return JSIMD_VIS;
-      case JCS_EXT_XRGB:
-      case JCS_EXT_ARGB:
-        cinfo->cconvert->color_convert_simd = jsimd_ycc_extxrgb_convert_vis;
-        return JSIMD_VIS;
-      default:
-        break;
-    }
+    SET_SIMD_EXTRGB_COLOR_DECONVERTER(vis);
+    return JSIMD_VIS;
   }
 #endif
 
@@ -901,30 +847,8 @@ jsimd_set_h2v1_merged_upsample(j_decompress_ptr cinfo)
   }
 #elif SIMD_ARCHITECTURE == SPARC
   if (cinfo->master->simd_support & JSIMD_VIS) {
-    switch (cinfo->out_color_space) {
-      case JCS_EXT_RGBX:
-      case JCS_EXT_RGBA:
-        cinfo->upsample->merged_upsample_simd =
-          jsimd_h2v1_extrgbx_merged_upsample_vis;
-        return JSIMD_VIS;
-      case JCS_EXT_BGRX:
-      case JCS_EXT_BGRA:
-        cinfo->upsample->merged_upsample_simd =
-          jsimd_h2v1_extbgrx_merged_upsample_vis;
-        return JSIMD_VIS;
-      case JCS_EXT_XBGR:
-      case JCS_EXT_ABGR:
-        cinfo->upsample->merged_upsample_simd =
-          jsimd_h2v1_extxbgr_merged_upsample_vis;
-        return JSIMD_VIS;
-      case JCS_EXT_XRGB:
-      case JCS_EXT_ARGB:
-        cinfo->upsample->merged_upsample_simd =
-          jsimd_h2v1_extxrgb_merged_upsample_vis;
-        return JSIMD_VIS;
-      default:
-        break;
-    }
+    SET_SIMD_EXTRGB_MERGED_UPSAMPLER(h2v1, vis);
+    return JSIMD_VIS;
   }
 #endif
 
@@ -992,30 +916,8 @@ jsimd_set_h2v2_merged_upsample(j_decompress_ptr cinfo)
   }
 #elif SIMD_ARCHITECTURE == SPARC
   if (cinfo->master->simd_support & JSIMD_VIS) {
-    switch (cinfo->out_color_space) {
-      case JCS_EXT_RGBX:
-      case JCS_EXT_RGBA:
-        cinfo->upsample->merged_upsample_simd =
-          jsimd_h2v2_extrgbx_merged_upsample_vis;
-        return JSIMD_VIS;
-      case JCS_EXT_BGRX:
-      case JCS_EXT_BGRA:
-        cinfo->upsample->merged_upsample_simd =
-          jsimd_h2v2_extbgrx_merged_upsample_vis;
-        return JSIMD_VIS;
-      case JCS_EXT_XBGR:
-      case JCS_EXT_ABGR:
-        cinfo->upsample->merged_upsample_simd =
-          jsimd_h2v2_extxbgr_merged_upsample_vis;
-        return JSIMD_VIS;
-      case JCS_EXT_XRGB:
-      case JCS_EXT_ARGB:
-        cinfo->upsample->merged_upsample_simd =
-          jsimd_h2v2_extxrgb_merged_upsample_vis;
-        return JSIMD_VIS;
-      default:
-        break;
-    }
+    SET_SIMD_EXTRGB_MERGED_UPSAMPLER(h2v2, vis);
+    return JSIMD_VIS;
   }
 #endif
 
