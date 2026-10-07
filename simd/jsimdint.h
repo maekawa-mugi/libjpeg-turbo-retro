@@ -482,6 +482,9 @@ EXTERN(void) jsimd_convsamp_altivec
 EXTERN(void) jsimd_convsamp_rvv
   (JSAMPARRAY sample_data, JDIMENSION start_col, DCTELEM *workspace);
 
+EXTERN(void) jsimd_convsamp_vis
+  (JSAMPARRAY sample_data, JDIMENSION start_col, DCTELEM *workspace);
+
 
 /* Floating Point Sample Conversion */
 
