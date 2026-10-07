@@ -643,6 +643,10 @@ EXTERN(void) jsimd_idct_ifast_mmi
   (void *dct_table, JCOEFPTR coef_block, JSAMPARRAY output_buf,
    JDIMENSION output_col);
 
+EXTERN(void) jsimd_idct_ifast_vis
+  (void *dct_table, JCOEFPTR coef_block, JSAMPARRAY output_buf,
+   JDIMENSION output_col);
+
 
 /* Scaled Integer Inverse DCT */
 
