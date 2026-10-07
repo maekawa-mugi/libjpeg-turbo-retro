@@ -1166,6 +1166,11 @@ jsimd_set_quantize(j_compress_ptr cinfo, quantize_method_ptr *method)
     *method = jsimd_quantize_mmi;
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == SPARC
+  if (cinfo->master->simd_support & JSIMD_VIS) {
+    *method = jsimd_quantize_vis;
+    return JSIMD_VIS;
+  }
 #endif
 
   return JSIMD_NONE;
