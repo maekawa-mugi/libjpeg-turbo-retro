@@ -576,6 +576,7 @@ check_c_source_compiles("
     y = __vis_fmul8x16au(a, k);
     x = __vis_fpadd16(x, y);
     x = __vis_fpsub16(x, y);
+    if (__vis_fcmpgt16(x, y)) x = y;
     (void)__vis_alignaddr((void *)0, 2);
     x = __vis_faligndatav4hi(x, y);
     a = __vis_fpack16(x);
