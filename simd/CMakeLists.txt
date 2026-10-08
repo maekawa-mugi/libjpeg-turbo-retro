@@ -516,7 +516,17 @@ check_c_source_compiles("
   #error \"The PS2 EE toolchain is required\"
   #endif
   int main(void) {
-    __asm__ volatile(\"pextlb $8, $8, $8\" : : : \"$8\");
+    __asm__ volatile(
+      \"pextlb $8, $8, $8\\n\\t\"
+      \"pmulth $10, $8, $8\\n\\t\"
+      \"pmflo $11\\n\\t\"
+      \"pmfhi $12\\n\\t\"
+      \"pcpyld $13, $12, $11\\n\\t\"
+      \"pcpyud $14, $12, $11\\n\\t\"
+      \"paddw $8, $8, $11\\n\\t\"
+      \"psraw $8, $8, 11\\n\\t\"
+      \"pmaxh $8, $8, $0\"
+      : : : \"$8\", \"$10\", \"$11\", \"$12\", \"$13\", \"$14\");
     return 0;
   }" HAVE_PS2_MMI)
 
@@ -529,7 +539,7 @@ option(WITH_PS2_EXPERIMENTAL_COLOR
   "Enable experimental PS2 MMI 4-byte YCbCr to RGB conversion" OFF)
 
 option(WITH_PS2_EXPERIMENTAL_IDCT
-  "Enable the unbenchmarked PS2 DC-only MMI IDCT shortcut (experimental)"
+  "Enable experimental PS2 MMI dequantization, odd multiplications, and IDCT butterflies"
   OFF)
 
 add_library(simd OBJECT ps2/jsimdcpu.c ps2/jdsample-mmi.c
@@ -544,7 +554,7 @@ if(WITH_PS2_EXPERIMENTAL_COLOR)
   target_compile_definitions(simd PRIVATE PS2_EXPERIMENTAL_COLOR=1)
 endif()
 
-option(WITH_PS2_MMI_TESTS "Build PS2 MMI plain-upsample smoke-test ELF" OFF)
+option(WITH_PS2_MMI_TESTS "Build PS2 MMI SIMD kernel verification ELFs" OFF)
 if(WITH_PS2_MMI_TESTS)
   if(NOT ENABLE_STATIC)
     message(FATAL_ERROR "WITH_PS2_MMI_TESTS requires ENABLE_STATIC=ON")
