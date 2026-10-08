@@ -17,10 +17,17 @@ It is independent of `simd/mips64/`, which uses **Loongson's distinct
 - `h2v1` and `h2v2` compressor downsampling: process 16 output samples
   with 128-bit MMI, preserving IJG's alternating rounding biases and
   right-edge expansion before downsampling.
-- Optional `JDCT_ISLOW` (accurate integer 8x8 IDCT): MMI-accelerated AC-zero
-  detection and DC-only shortcut.  Non-DC-only blocks execute the matching
-  IJG 8x8 integer algorithm, with exact output range-table wrapping.
-  This is a *partial* IDCT optimization, not a complete vector IDCT.
+- Optional `JDCT_ISLOW` (accurate integer 8x8 IDCT): 128-bit MMI
+  zero-AC detection for the DC-only shortcut; for non-DC-only blocks,
+  `PMULTH` dequantizes eight 16-bit coefficient/quant pairs into 32-bit
+  products per iteration and `PCPYLD`/`PCPYUD` reorder the R5900
+  accumulators into the original block order.  Each IDCT pass now uses
+  four 32-bit MMI lanes for the final Loeffler butterflies and IJG
+  rounding (`PADDW`, `PSUBW`, `PSRAW`).  Middle stages retain the
+  reference fixed-point integer operations and 10-bit range wrapping.
+  An unaligned coefficient/quant table or non-16-bit quant type uses
+  the scalar dequantizer.  This is a *partial-vector* transform, not
+  a fully vectorized 8x8 IDCT.
 - Optional YCbCr to 4-byte RGBX/RGBA/BGRX/BGRA/XBGR/ABGR/XRGB/ARGB:
   16.16 fixed-point color calculation, followed by 128-bit MMI
   halfword clipping and packing of four pixels.  This is an experimental
@@ -66,7 +73,8 @@ alignment; the fancy test covers 128 (including source context rows,
 different data patterns, boundaries, and deliberately unaligned rows).
 All tests check that output padding is untouched.  The downsampling
 test covers 136 cases (including right-edge padding and alternating
-rounding), and the IDCT test compares 512 blocks against the library's
+rounding), and the IDCT test compares 2048 blocks (DC-only, sparse, dense,
+single-AC, and aligned/unaligned quant/coefficient tables) against the library's
 reference integer IDCT.  The color test covers 420 image-row/layout
 cases, including all four-byte output layouts, three-byte scalar
 reference layouts, unaligned destinations, chroma extremes, and buffer
@@ -90,7 +98,8 @@ a PS2 MMI path, including 4:2:0.  Compare both settings with a
 R5900 compilation, pixel equivalence, and PS2 execution have **not yet
 been tested**.  In addition to byte comparison, benchmark separately
 for low-entropy and high-entropy coefficient blocks: the IDCT MMI
-shortcut speeds DC-only blocks but requires a complete AC scan for
-other blocks.  Keep `WITH_PS2_EXPERIMENTAL_IDCT=OFF` unless testing or
+shortcut can speed DC-only blocks but requires a complete AC scan for
+other blocks.  The PMULTH and butterfly paths may have different speed
+tradeoffs due to stack-buffer traffic and reordering.  Keep `WITH_PS2_EXPERIMENTAL_IDCT=OFF` unless testing or
 benchmarking the IDCT path.  The toolchain check and the new assembly should be
 validated before treating this as a production optimization.
