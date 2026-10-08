@@ -832,6 +832,35 @@ jsimd_set_h2v1_merged_upsample(j_decompress_ptr cinfo)
     SET_SIMD_EXTRGB_MERGED_UPSAMPLER(h2v1, mmi);
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == PS2_EE && defined(PS2_EXPERIMENTAL_MERGED)
+  /* Only the four-byte RGB layouts are implemented.  RGB/BGR/RGB565
+   * remain on the portable jdmerge.c path. */
+  if (cinfo->master->simd_support & JSIMD_PS2_MMI) {
+    switch (cinfo->out_color_space) {
+    case JCS_EXT_RGBX:
+    case JCS_EXT_RGBA:
+      cinfo->upsample->merged_upsample_simd =
+        jsimd_h2v1_extrgbx_merged_upsample_ps2mmi;
+      return JSIMD_PS2_MMI;
+    case JCS_EXT_BGRX:
+    case JCS_EXT_BGRA:
+      cinfo->upsample->merged_upsample_simd =
+        jsimd_h2v1_extbgrx_merged_upsample_ps2mmi;
+      return JSIMD_PS2_MMI;
+    case JCS_EXT_XBGR:
+    case JCS_EXT_ABGR:
+      cinfo->upsample->merged_upsample_simd =
+        jsimd_h2v1_extxbgr_merged_upsample_ps2mmi;
+      return JSIMD_PS2_MMI;
+    case JCS_EXT_XRGB:
+    case JCS_EXT_ARGB:
+      cinfo->upsample->merged_upsample_simd =
+        jsimd_h2v1_extxrgb_merged_upsample_ps2mmi;
+      return JSIMD_PS2_MMI;
+    default:
+      break;
+    }
+  }
 #endif
 
   return JSIMD_NONE;
@@ -895,6 +924,35 @@ jsimd_set_h2v2_merged_upsample(j_decompress_ptr cinfo)
   if (cinfo->master->simd_support & JSIMD_MMI) {
     SET_SIMD_EXTRGB_MERGED_UPSAMPLER(h2v2, mmi);
     return JSIMD_MMI;
+  }
+#elif SIMD_ARCHITECTURE == PS2_EE && defined(PS2_EXPERIMENTAL_MERGED)
+  /* Only the four-byte RGB layouts are implemented.  RGB/BGR/RGB565
+   * remain on the portable jdmerge.c path. */
+  if (cinfo->master->simd_support & JSIMD_PS2_MMI) {
+    switch (cinfo->out_color_space) {
+    case JCS_EXT_RGBX:
+    case JCS_EXT_RGBA:
+      cinfo->upsample->merged_upsample_simd =
+        jsimd_h2v2_extrgbx_merged_upsample_ps2mmi;
+      return JSIMD_PS2_MMI;
+    case JCS_EXT_BGRX:
+    case JCS_EXT_BGRA:
+      cinfo->upsample->merged_upsample_simd =
+        jsimd_h2v2_extbgrx_merged_upsample_ps2mmi;
+      return JSIMD_PS2_MMI;
+    case JCS_EXT_XBGR:
+    case JCS_EXT_ABGR:
+      cinfo->upsample->merged_upsample_simd =
+        jsimd_h2v2_extxbgr_merged_upsample_ps2mmi;
+      return JSIMD_PS2_MMI;
+    case JCS_EXT_XRGB:
+    case JCS_EXT_ARGB:
+      cinfo->upsample->merged_upsample_simd =
+        jsimd_h2v2_extxrgb_merged_upsample_ps2mmi;
+      return JSIMD_PS2_MMI;
+    default:
+      break;
+    }
   }
 #endif
 

@@ -23,20 +23,21 @@ aligned_ptr(JSAMPLE *src, unsigned extra)
 }
 
 static int
-verify(unsigned width, int vertical, unsigned extra, unsigned seed)
+verify(unsigned width, int vertical, unsigned input_extra,
+       unsigned output_extra, unsigned seed)
 {
   JSAMPARRAY input = input_rows + 1; /* input[-1] and input[+2] are valid */
   JSAMPARRAY output = output_rows;
   int r, col;
 
   for (r = 0; r < NROWS + 2; r++) {
-    input_rows[r] = aligned_ptr(input_mem[r], extra);
+    input_rows[r] = aligned_ptr(input_mem[r], input_extra);
     for (col = 0; col < MAX_WIDTH; col++)
       input_rows[r][col] =
         (JSAMPLE)((seed + r * 71 + col * 43 + col * r * 13) & 255);
   }
   for (r = 0; r < NROWS; r++) {
-    output_rows[r] = aligned_ptr(output_mem[r], extra);
+    output_rows[r] = aligned_ptr(output_mem[r], output_extra);
     memset(output_rows[r], 0xa5, 2 * MAX_WIDTH + 16);
   }
 
@@ -67,15 +68,15 @@ verify(unsigned width, int vertical, unsigned extra, unsigned seed)
       }
       if (output[r][col * 2] != (JSAMPLE)expected_l ||
           output[r][col * 2 + 1] != (JSAMPLE)expected_r) {
-        printf("FAIL fancy: width=%u v=%d offset=%u seed=%u row=%d col=%d\n",
-               width, vertical, extra, seed, r, col);
+        printf("FAIL fancy: width=%u v=%d src_offset=%u dst_offset=%u seed=%u row=%d col=%d\n",
+               width, vertical, input_extra, output_extra, seed, r, col);
         return 1;
       }
     }
     for (col = 2 * width; col < 2 * width + 16; col++) {
       if (output[r][col] != 0xa5) {
-        printf("OVERWRITE fancy: width=%u v=%d offset=%u row=%d col=%d\n",
-               width, vertical, extra, r, col);
+        printf("OVERWRITE fancy: width=%u v=%d dst_offset=%u row=%d col=%d\n",
+               width, vertical, output_extra, r, col);
         return 1;
       }
     }
@@ -88,19 +89,22 @@ int
 main(void)
 {
   static const unsigned widths[] =
-    { 1, 2, 3, 7, 8, 9, 15, 16, 17, 23, 31, 32, 33, 47, 64, 65 };
-  unsigned i, extra, seed;
+    { 1, 2, 3, 7, 8, 9, 15, 16, 17, 23, 24, 25, 31, 32, 33,
+      40, 41, 47, 64, 65 };
+  unsigned i, input_extra, output_extra, seed;
   int v;
   unsigned checks = 0;
 
   for (v = 1; v <= 2; v++)
-    for (extra = 0; extra < 2; extra++)
-      for (seed = 0; seed < 2; seed++)
-        for (i = 0; i < sizeof(widths) / sizeof(widths[0]); i++) {
-          if (verify(widths[i], v, extra, seed ? 191 : 0))
-            return 1;
-          checks++;
-        }
+    for (input_extra = 0; input_extra < 2; input_extra++)
+      for (output_extra = 0; output_extra < 2; output_extra++)
+        for (seed = 0; seed < 2; seed++)
+          for (i = 0; i < sizeof(widths) / sizeof(widths[0]); i++) {
+            if (verify(widths[i], v, input_extra, output_extra,
+                       seed ? 191 : 0))
+              return 1;
+            checks++;
+          }
 
   printf("PS2 MMI fancy upsampling: PASS (%u cases)\n", checks);
   return 0;
