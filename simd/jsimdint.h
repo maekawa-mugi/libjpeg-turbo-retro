@@ -635,6 +635,11 @@ EXTERN(void) jsimd_idct_ifast_mmi
   (void *dct_table, JCOEFPTR coef_block, JSAMPARRAY output_buf,
    JDIMENSION output_col);
 
+/* PlayStation 2 R5900 MMI DC-sparse optimized accurate integer IDCT */
+EXTERN(void) jsimd_idct_islow_ps2mmi
+  (void *dct_table, JCOEFPTR coef_block, JSAMPARRAY output_buf,
+   JDIMENSION output_col);
+
 
 /* Scaled Integer Inverse DCT */
 
