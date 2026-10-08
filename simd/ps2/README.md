@@ -14,8 +14,15 @@ It is independent of `simd/mips64/`, which uses **Loongson's distinct
   horizontal pixels at a time processed in R5900 MMI.
 - `h2v2` fancy upsampling: eight-wide MMI vertical interpolation followed
   by bit-exact horizontal interpolation in C.
+- `h2v1` and `h2v2` compressor downsampling: process 16 output samples
+  with 128-bit MMI, preserving IJG's alternating rounding biases and
+  right-edge expansion before downsampling.
+- `JDCT_ISLOW` (accurate integer 8x8 IDCT): MMI-accelerated AC-zero
+  detection and DC-only shortcut.  Non-DC-only blocks execute the matching
+  IJG 8x8 integer algorithm, with exact output range-table wrapping.
+  This is a *partial* IDCT optimization, not a complete vector IDCT.
 - All remaining JPEG SIMD hooks use generic C.  In particular, this is
-  **not yet an MMI IDCT, FDCT, merged upsampler, or color converter**.
+  **not yet an MMI FDCT, ifast IDCT, merged upsampler, or color converter**.
 - The backend is selected only with `WITH_SIMD=ON` for the PS2 EE
   toolchain.  Building with `WITH_SIMD=OFF` still uses generic C.
 
@@ -30,13 +37,17 @@ cmake --build build-ps2 -j
 ```
 
 For an optional PS2 ELF smoke test, also pass `-DWITH_PS2_MMI_TESTS=ON`
-to the configuration command.  Build targets `ps2_mmi_upsample_test` and `ps2_mmi_fancy_test`,
-then run the resulting ELFs on PS2 hardware or an emulator.  The
+to the configuration command.  Build targets `ps2_mmi_upsample_test`, `ps2_mmi_fancy_test`,
+`ps2_mmi_downsample_test`, and `ps2_mmi_idct_test` and run their
+resulting ELFs on PS2 hardware or an emulator.  The
 plain test covers 48 combinations of width, sampling ratio, and pointer
 alignment; the fancy test covers 128 (including source context rows,
 different data patterns, boundaries, and deliberately unaligned rows).
-Both tests check that output padding is untouched.  The tests are **not**
-executed during cross-compilation.
+All tests check that output padding is untouched.  The downsampling
+test covers 136 cases (including right-edge padding and alternating
+rounding), and the IDCT test compares 512 blocks against the library's
+reference integer IDCT.  The tests are **not** executed during
+cross-compilation.
 
 For exercising the plain kernels, use 8-bit JPEG images with 4:2:2 or
 4:2:0 subsampling and set `cinfo.do_fancy_upsampling = FALSE` before
@@ -53,5 +64,9 @@ a PS2 MMI path, including 4:2:0.  Compare both settings with a
 4. Measure full-frame time and, separately, the upsampling stage.
 
 R5900 compilation, pixel equivalence, and PS2 execution have **not yet
-been tested**.  The toolchain check and the new assembly should be
+been tested**.  In addition to byte comparison, benchmark separately
+for low-entropy and high-entropy coefficient blocks: the IDCT MMI
+shortcut speeds DC-only blocks but requires a complete AC scan for
+other blocks.  If the latter regress, disable the IDCT dispatch until
+an MMI full-transform kernel is ready.  The toolchain check and the new assembly should be
 validated before treating this as a production optimization.
