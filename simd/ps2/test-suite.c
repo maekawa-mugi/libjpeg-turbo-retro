@@ -12,6 +12,7 @@ int ps2_test_fancy(void);
 int ps2_test_downsample(void);
 int ps2_test_idct(void);
 int ps2_test_color(void);
+int ps2_test_merged(void);
 
 /* The test objects rename printf/puts to these functions, so detailed
  * failures appear on the GS display as well as the host console. */
@@ -44,9 +45,11 @@ int main(void)
     { "fancy upsampling", ps2_test_fancy },
     { "downsampling", ps2_test_downsample },
     { "integer IDCT", ps2_test_idct },
-    { "YCbCr to RGB", ps2_test_color }
+    { "YCbCr to RGB", ps2_test_color },
+    { "merged YCbCr/RGBX", ps2_test_merged }
   };
   unsigned i, failed = 0;
+  const unsigned total = (unsigned)(sizeof(tests) / sizeof(tests[0]));
   init_scr();
   ps2_test_puts("libjpeg-turbo PS2 EE MMI validation\n");
 #ifdef PS2_EXPERIMENTAL_IDCT_EVEN
@@ -54,17 +57,17 @@ int main(void)
 #else
   ps2_test_puts("IDCT even rotation: scalar\n");
 #endif
-  for (i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
-    ps2_test_printf("[%u/6] %s\n", i + 1, tests[i].name);
+  for (i = 0; i < total; i++) {
+    ps2_test_printf("[%u/%u] %s\n", i + 1, total, tests[i].name);
     if (tests[i].run()) {
       failed++;
       ps2_test_printf("TEST FAILED: %s\n", tests[i].name);
     }
   }
   if (failed)
-    ps2_test_printf("\nTEST: FAIL! (%u/6 groups failed)\n", failed);
+    ps2_test_printf("\nTEST: FAIL! (%u/%u groups failed)\n", failed, total);
   else
-    ps2_test_puts("\nTEST: OK! (6/6 groups passed)");
+    ps2_test_printf("\nTEST: OK! (%u/%u groups passed)\n", total, total);
   ps2_test_puts("Result stays on screen. Reset or stop to exit.");
   fflush(stdout);
   for (;;)
