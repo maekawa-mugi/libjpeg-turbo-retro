@@ -49,10 +49,7 @@ cmake --build build-ps2 --target \
   ps2_mmi_downsample_test ps2_mmi_idct_test
 ```
 
-For an optional PS2 ELF smoke test, also pass `-DWITH_PS2_MMI_TESTS=ON`
-to the configuration command.  Build targets `ps2_mmi_upsample_test`, `ps2_mmi_fancy_test`,
-`ps2_mmi_downsample_test`, and `ps2_mmi_idct_test` and run their
-resulting ELFs on PS2 hardware or an emulator.  The
+Run these ELFs on PS2 hardware or an emulator.  The
 plain test covers 48 combinations of width, sampling ratio, and pointer
 alignment; the fancy test covers 128 (including source context rows,
 different data patterns, boundaries, and deliberately unaligned rows).
