@@ -27,8 +27,13 @@ It is independent of `simd/mips64/`, which uses **Loongson's distinct
   in each pass now also batches eight signed 16-bit multiplies with
   `PMULTH` when all intermediate operands fit in a signed halfword;
   values outside that range use the reference `MULTIPLY16C16` path.
-  The remaining middle stages retain the IJG fixed-point operations
-  and 10-bit range wrapping.
+  The even-part rotation can also use `PMULTH` for its three fixed-point
+  products, but that consumes only three of eight lanes and may be
+  slower than the scalar path.  It is therefore gated separately by
+  `WITH_PS2_EXPERIMENTAL_IDCT_EVEN=ON` (default OFF) for benchmarking.
+  Both vector paths preserve the scalar fallback for operands outside
+  the signed 16-bit range.  Remaining middle stages use IJG fixed-point
+  arithmetic and 10-bit range wrapping.
   An unaligned coefficient/quant table or non-16-bit quant type uses
   the scalar dequantizer.  This is a *partial-vector* transform, not
   a fully vectorized 8x8 IDCT.
@@ -45,6 +50,9 @@ It is independent of `simd/mips64/`, which uses **Loongson's distinct
   bit-exactness are verified on actual PS2 hardware.  Set
   `-DWITH_PS2_EXPERIMENTAL_IDCT=ON` to exercise it in normal JPEG decoding.
   The IDCT standalone test builds independently of this setting.
+  `WITH_PS2_EXPERIMENTAL_IDCT_EVEN` is a separate option that controls
+  only the even-rotation inner kernel.  It also affects the standalone
+  IDCT test when built with `WITH_PS2_MMI_TESTS=ON`.
 
 - The color converter is **disabled by default** until compiled and
   benchmarked on PS2.  Pass `-DWITH_PS2_EXPERIMENTAL_COLOR=ON` to enable
@@ -78,7 +86,7 @@ different data patterns, boundaries, and deliberately unaligned rows).
 All tests check that output padding is untouched.  The downsampling
 test covers 136 cases (including right-edge padding and alternating
 rounding), and the IDCT test compares 2048 blocks (DC-only, sparse, dense,
-single-AC, signed odd-frequency stress, and aligned/unaligned
+single-AC, signed odd/even-frequency stress, and aligned/unaligned
 quant/coefficient tables) against the library's
 reference integer IDCT.  The color test covers 420 image-row/layout
 cases, including all four-byte output layouts, three-byte scalar
@@ -91,6 +99,36 @@ For exercising the plain kernels, use 8-bit JPEG images with 4:2:2 or
 `jpeg_start_decompress()`.  The default fancy upsampling now also has
 a PS2 MMI path, including 4:2:0.  Compare both settings with a
 `WITH_SIMD=OFF` reference build.
+
+## Compare even-part IDCT rotation variants
+
+The even-rotation MMI experiment uses only three multiplication lanes and
+has **no measured speedup**.  Build and run the IDCT test twice, keeping
+the same JPEG test images, compiler flags, and hardware:
+
+```sh
+# Default scalar even-rotation path
+cmake -S . -B build-ps2-even-off \
+  -DCMAKE_TOOLCHAIN_FILE="$PS2DEV/share/ps2dev.cmake" \
+  -DENABLE_SHARED=OFF -DENABLE_STATIC=ON -DWITH_SIMD=ON \
+  -DWITH_TOOLS=OFF -DWITH_PS2_MMI_TESTS=ON \
+  -DWITH_PS2_EXPERIMENTAL_IDCT=ON \
+  -DWITH_PS2_EXPERIMENTAL_IDCT_EVEN=OFF
+cmake --build build-ps2-even-off --target ps2_mmi_idct_test
+
+# Experimental three-lane PMULTH even-rotation path
+cmake -S . -B build-ps2-even-on \
+  -DCMAKE_TOOLCHAIN_FILE="$PS2DEV/share/ps2dev.cmake" \
+  -DENABLE_SHARED=OFF -DENABLE_STATIC=ON -DWITH_SIMD=ON \
+  -DWITH_TOOLS=OFF -DWITH_PS2_MMI_TESTS=ON \
+  -DWITH_PS2_EXPERIMENTAL_IDCT=ON \
+  -DWITH_PS2_EXPERIMENTAL_IDCT_EVEN=ON
+cmake --build build-ps2-even-on --target ps2_mmi_idct_test
+```
+
+Both test ELFs should report 2048 bit-exact reference comparisons.
+Passing does not imply that the experimental kernel is faster.
+Benchmark full decode separately for low- and high-entropy JPEG blocks.
 
 ## Suggested on-device tests
 
