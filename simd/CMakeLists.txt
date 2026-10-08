@@ -527,6 +527,15 @@ endif()
 
 add_library(simd OBJECT ps2/jsimdcpu.c ps2/jdsample-mmi.c jsimd.c)
 
+option(WITH_PS2_MMI_TESTS "Build PS2 MMI plain-upsample smoke-test ELF" OFF)
+if(WITH_PS2_MMI_TESTS)
+  if(NOT ENABLE_STATIC)
+    message(FATAL_ERROR "WITH_PS2_MMI_TESTS requires ENABLE_STATIC=ON")
+  endif()
+  add_executable(ps2_mmi_upsample_test ps2/test-upsample.c)
+  target_link_libraries(ps2_mmi_upsample_test jpeg-static)
+endif()
+
 if(CMAKE_POSITION_INDEPENDENT_CODE OR ENABLE_SHARED)
   set_target_properties(simd PROPERTIES POSITION_INDEPENDENT_CODE 1)
 endif()
