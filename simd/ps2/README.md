@@ -76,7 +76,7 @@ to the configure command and run:
 cmake --build build-ps2 --target \
   ps2_mmi_upsample_test ps2_mmi_fancy_test \
   ps2_mmi_downsample_test ps2_mmi_idct_test \
-  ps2_mmi_color_test
+  ps2_mmi_color_test ps2_mmi_primitives_test
 ```
 
 Run these ELFs on PS2 hardware or an emulator.  The
@@ -91,14 +91,37 @@ quant/coefficient tables) against the library's
 reference integer IDCT.  The color test covers 420 image-row/layout
 cases, including all four-byte output layouts, three-byte scalar
 reference layouts, unaligned destinations, chroma extremes, and buffer
-guard bytes.  The tests are **not** executed during
-cross-compilation.
+guard bytes.  The independent `ps2_mmi_primitives_test` checks 1024
+deterministic-random iterations of PEXTLB/PEXTUB byte expansion, all
+eight PMULTH 16x16 products and their original lane order, both
+11-/18-bit LL&M butterfly rounding shifts, and PMAXH/PMINH/PPACB
+saturation/packing.  Guard bytes/words are checked separately.
+The tests are **not** executed during cross-compilation.
 
 For exercising the plain kernels, use 8-bit JPEG images with 4:2:2 or
 4:2:0 subsampling and set `cinfo.do_fancy_upsampling = FALSE` before
 `jpeg_start_decompress()`.  The default fancy upsampling now also has
 a PS2 MMI path, including 4:2:0.  Compare both settings with a
 `WITH_SIMD=OFF` reference build.
+
+## R5900 PMULTH/PCPYUD lane-order regression
+
+The R5900 `PMULTH` instruction deposits halfword multiplications into
+two accumulators: LO contains lanes 0, 1, 4, 5 and HI contains lanes
+2, 3, 6, 7.  `PCPYLD rd, HI, LO` restores lanes 0..3; **PCPYUD uses
+the upper half of its first source as the LOWER output half**.
+Therefore `PCPYUD rd, LO, HI` (not `HI, LO`) restores lanes 4..7.
+The earlier code used the reversed operand order in this instruction;
+the fix and instruction-level regression test are on this branch.
+
+```sh
+cmake --build build-ps2 --target ps2_mmi_primitives_test
+# Run ps2_mmi_primitives_test.elf on your PS2 or EE emulator.
+# Expected: PS2 MMI primitives: PASS (1024 iterations, five kernel checks each)
+```
+
+Run this ELF before the full 2048-case IDCT comparison, so an ISA-lane
+problem can be separated from an IDCT math or rounding problem.
 
 ## Compare even-part IDCT rotation variants
 
