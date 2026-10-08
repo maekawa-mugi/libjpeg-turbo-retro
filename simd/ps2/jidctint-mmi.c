@@ -7,8 +7,11 @@
  * Modifications developed 2002-2018 by Guido Vollbeding.
  * libjpeg-turbo Modifications:
  * Copyright (C) 2015, 2020, 2022, 2026, D. R. Commander.
- * See README.ijg and the original jidctint.c for terms and attribution.  The MMI fast path detects DC-only blocks with 128-bit
- * registers, and bypasses both scalar passes in that common case.
+ * See README.ijg and the original jidctint.c for terms and attribution.
+ *
+ * MMI handles the zero-AC test, eight 16-bit coefficient products, and
+ * four parallel 32-bit butterfly pairs in both transform passes.
+ * The middle fixed-point stages match the IJG integer reference.
  *
  * This implementation is intentionally conservative: the complete IDCT
  * retains the reference integer operations and exact post-IDCT wrapping,
@@ -297,7 +300,7 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
       wsptr[DCTSIZE * 7] = dcval;
 
       inptr++;                  /* advance pointers to next column */
-        wsptr++;
+      wsptr++;
       continue;
     }
 
