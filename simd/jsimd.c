@@ -1233,7 +1233,7 @@ jsimd_set_idct_islow(j_decompress_ptr cinfo)
     cinfo->idct->idct_simd = jsimd_idct_islow_mmi;
     return JSIMD_MMI;
   }
-#elif SIMD_ARCHITECTURE == PS2_EE
+#elif SIMD_ARCHITECTURE == PS2_EE && defined(PS2_EXPERIMENTAL_IDCT)
   if (cinfo->master->simd_support & JSIMD_PS2_MMI) {
     cinfo->idct->idct_simd = jsimd_idct_islow_ps2mmi;
     return JSIMD_PS2_MMI;
