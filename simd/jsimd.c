@@ -368,6 +368,11 @@ jsimd_set_h2v1_downsample(j_compress_ptr cinfo)
     cinfo->downsample->h2v1_downsample_simd = jsimd_h2v1_downsample_rvv;
     return JSIMD_RVV;
   }
+#elif SIMD_ARCHITECTURE == PS2_EE
+  if (cinfo->master->simd_support & JSIMD_PS2_MMI) {
+    cinfo->downsample->h2v1_downsample_simd = jsimd_h2v1_downsample_ps2mmi;
+    return JSIMD_PS2_MMI;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -432,6 +437,11 @@ jsimd_set_h2v2_downsample(j_compress_ptr cinfo)
   if (cinfo->master->simd_support & JSIMD_MMI) {
     cinfo->downsample->h2v2_downsample_simd = jsimd_h2v2_downsample_mmi;
     return JSIMD_MMI;
+  }
+#elif SIMD_ARCHITECTURE == PS2_EE
+  if (cinfo->master->simd_support & JSIMD_PS2_MMI) {
+    cinfo->downsample->h2v2_downsample_simd = jsimd_h2v2_downsample_ps2mmi;
+    return JSIMD_PS2_MMI;
   }
 #endif
 
