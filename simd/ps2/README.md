@@ -50,6 +50,11 @@ It is independent of `simd/mips64/`, which uses **Loongson's distinct
   expanded chroma rows.  YCbCr matrix multiplication is still scalar;
   four-pixel saturation and interleaved output packing use R5900 MMI.
   Enable with `WITH_PS2_EXPERIMENTAL_MERGED=ON` (default OFF).
+  `WITH_PS2_EXPERIMENTAL_MERGED_PMULTH=ON` (also default OFF) replaces
+  the two scalar chroma matrix evaluations per four pixels with one eight-lane
+  `PMULTH`.  The fixed-point constants are decomposed into signed 16-bit
+  multipliers, preserving IJG rounding.  Benchmark both variants because
+  PMULTH HI/LO extraction and temporary arrays may erase the arithmetic gain.
   The 3-byte formats and RGB565 remain on the portable merged converter.
 - Remaining JPEG SIMD hooks use generic C, including
   **MMI FDCT and ifast IDCT**.
@@ -117,7 +122,15 @@ rebuild with:
 PS2_MERGED=ON bash simd/ps2/build-test-elf.sh
 ```
 
-The merged standalone test runs even when the option is OFF.
+To test the optional PMULTH color matrix in the same merged kernel:
+
+```sh
+PS2_MERGED=ON PS2_MERGED_PMULTH=ON bash simd/ps2/build-test-elf.sh
+```
+
+The merged standalone test runs even when `PS2_MERGED` is OFF.
+Both variants must pass the 2176 reference cases and be benchmarked
+separately; no speedup has yet been measured.
 
 On 2026-10-09, the default suite and the static JPEG library were
 successfully compiled and linked with EE GCC 15.1.0 and the existing
