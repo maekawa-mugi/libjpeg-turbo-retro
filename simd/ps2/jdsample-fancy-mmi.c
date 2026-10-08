@@ -136,30 +136,6 @@ fancy8_h2v2_mmi(const JSAMPLE *near, const JSAMPLE *far, JSAMPLE *dst)
     : "$8", "$9", "$10", "$11", "$12", "$13", "$14", "$15", "memory");
 }
 
-/* Vertical 3:1 filter in eight 16-bit lanes.  Result <= 1020. */
-static void
-vertical8_mmi(const JSAMPLE *near, const JSAMPLE *far,
-              unsigned short sums[8])
-{
-  __asm__ volatile(
-    ".set push\n\t"
-    ".set noreorder\n\t"
-    "ldl $8, 7(%0)\n\t"
-    "ldr $8, 0(%0)\n\t"
-    "ldl $9, 7(%1)\n\t"
-    "ldr $9, 0(%1)\n\t"
-    "pextlb $8, $0, $8\n\t"
-    "pextlb $9, $0, $9\n\t"
-    "psllh $10, $8, 1\n\t"
-    "paddh $10, $10, $8\n\t"
-    "paddh $10, $10, $9\n\t"
-    "sq $10, 0(%2)\n\t"
-    ".set pop\n\t"
-    :
-    : "r" (near), "r" (far), "r" (sums)
-    : "$8", "$9", "$10", "memory");
-}
-
 HIDDEN void
 jsimd_h2v1_fancy_upsample_ps2mmi(int max_v_samp_factor,
                                  JDIMENSION downsampled_width,
