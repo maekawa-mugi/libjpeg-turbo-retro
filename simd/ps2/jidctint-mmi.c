@@ -2,8 +2,12 @@
  * PlayStation 2 Emotion Engine partial MMI 8x8 accurate integer IDCT.
  *
  * The full-coefficient 8x8 IDCT is based directly on the IJG/Loeffler
- * integer algorithm in src/jidctint.c (see its original copyright and
- * README.ijg).  The MMI fast path detects DC-only blocks with 128-bit
+ * integer algorithm in src/jidctint.c, originally:
+ * Copyright (C) 1991-1998, Thomas G. Lane.
+ * Modifications developed 2002-2018 by Guido Vollbeding.
+ * libjpeg-turbo Modifications:
+ * Copyright (C) 2015, 2020, 2022, 2026, D. R. Commander.
+ * See README.ijg and the original jidctint.c for terms and attribution.  The MMI fast path detects DC-only blocks with 128-bit
  * registers, and bypasses both scalar passes in that common case.
  *
  * This implementation is intentionally conservative: the complete IDCT
