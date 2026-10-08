@@ -78,6 +78,21 @@ run_case(unsigned iteration, unsigned seed, int align_case)
       coef[i] = (JCOEF)((int)((state >> 12) % 129U) - 64);
     }
   }
+  /*
+   * Additional signed-range stress: a single odd-frequency coefficient
+   * with a larger quantization multiplier.  This exercises the guarded
+   * middle-stage multiply path without generating arbitrarily large
+   * coefficient blocks that could overflow the IJG 32-bit reference.
+   */
+  if (iteration % 16 == 7) {
+    for (i = 0; i < 64; i++) {
+      coef[i] = 0;
+      quant[i] = 1;
+    }
+    coef[9] = (JCOEF)((iteration & 16U) ? 240 : -240);
+    quant[9] = 16;
+  }
+
   /* Separate alignment variations exercise both the PMULTH dequantizer
    * and the reference scalar multiplication fallback. */
   for (row = 0; row < 8; row++) {
