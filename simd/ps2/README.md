@@ -10,9 +10,12 @@ It is independent of `simd/mips64/`, which uses **Loongson's distinct
   stores, with a bounded scalar tail.
 - `h2v2` plain upsampling: the same horizontal expansion, followed by
   duplication of the expanded output row.
-- All other JPEG SIMD hooks return no implementation and use the
-  library's generic C routines.  In particular, this is **not yet an
-  MMI IDCT, FDCT, fancy upsampler, or color converter**.
+- `h2v1` fancy upsampling: exact 3:1 triangle interpolation with eight
+  horizontal pixels at a time processed in R5900 MMI.
+- `h2v2` fancy upsampling: eight-wide MMI vertical interpolation followed
+  by bit-exact horizontal interpolation in C.
+- All remaining JPEG SIMD hooks use generic C.  In particular, this is
+  **not yet an MMI IDCT, FDCT, merged upsampler, or color converter**.
 - The backend is selected only with `WITH_SIMD=ON` for the PS2 EE
   toolchain.  Building with `WITH_SIMD=OFF` still uses generic C.
 
@@ -27,20 +30,23 @@ cmake --build build-ps2 -j
 ```
 
 For an optional PS2 ELF smoke test, also pass `-DWITH_PS2_MMI_TESTS=ON`
-to the configuration command.  Build target `ps2_mmi_upsample_test`
-and run its ELF on PS2 hardware or an emulator.  The test covers 48
-combinations of width, sampling ratio, and pointer alignment, with
-bounded-output guards.  It prints `PS2 MMI upsampling: PASS (48 cases)`
-on success.  The test is not executed during cross-compilation.
+to the configuration command.  Build targets `ps2_mmi_upsample_test` and `ps2_mmi_fancy_test`,
+then run the resulting ELFs on PS2 hardware or an emulator.  The
+plain test covers 48 combinations of width, sampling ratio, and pointer
+alignment; the fancy test covers 128 (including source context rows,
+different data patterns, boundaries, and deliberately unaligned rows).
+Both tests check that output padding is untouched.  The tests are **not**
+executed during cross-compilation.
 
-For exercising these two kernels, use 8-bit JPEG images with 4:2:2
-or 4:2:0 subsampling and set `cinfo.do_fancy_upsampling = FALSE`
-**before** `jpeg_start_decompress()`.  libjpeg normally selects
-*fancy* upsampling, which deliberately falls back to generic C here.
+For exercising the plain kernels, use 8-bit JPEG images with 4:2:2 or
+4:2:0 subsampling and set `cinfo.do_fancy_upsampling = FALSE` before
+`jpeg_start_decompress()`.  The default fancy upsampling now also has
+a PS2 MMI path, including 4:2:0.  Compare both settings with a
+`WITH_SIMD=OFF` reference build.
 
 ## Suggested on-device tests
 
-1. Compare SIMD on/off for 4:2:0 and 4:2:2 images, including odd widths,
+1. Compare SIMD on/off for 4:2:0 and 4:2:2 images in both fancy/plain modes, including odd widths,
    widths below 32, exactly 32, and non-multiples of 32.
 2. Verify aligned and deliberately unaligned input/output rows.
 3. Compare pixels against the generic C plain upsampler.
