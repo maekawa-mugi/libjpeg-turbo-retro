@@ -256,6 +256,14 @@ EXTERN(void) jsimd_h2v2_downsample_mmi
   (JDIMENSION image_width, int max_v_samp_factor, JDIMENSION v_samp_factor,
    JDIMENSION width_in_blocks, JSAMPARRAY input_data, JSAMPARRAY output_data);
 
+/* PlayStation 2 EE (R5900) 128-bit MMI plain downsampling */
+EXTERN(void) jsimd_h2v1_downsample_ps2mmi
+  (JDIMENSION image_width, int max_v_samp_factor, JDIMENSION v_samp_factor,
+   JDIMENSION width_in_blocks, JSAMPARRAY input_data, JSAMPARRAY output_data);
+EXTERN(void) jsimd_h2v2_downsample_ps2mmi
+  (JDIMENSION image_width, int max_v_samp_factor, JDIMENSION v_samp_factor,
+   JDIMENSION width_in_blocks, JSAMPARRAY input_data, JSAMPARRAY output_data);
+
 
 /* Plain Upsampling */
 
