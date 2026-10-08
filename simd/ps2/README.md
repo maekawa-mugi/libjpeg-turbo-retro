@@ -26,6 +26,13 @@ cmake -S . -B build-ps2 \
 cmake --build build-ps2 -j
 ```
 
+For an optional PS2 ELF smoke test, also pass `-DWITH_PS2_MMI_TESTS=ON`
+to the configuration command.  Build target `ps2_mmi_upsample_test`
+and run its ELF on PS2 hardware or an emulator.  The test covers 48
+combinations of width, sampling ratio, and pointer alignment, with
+bounded-output guards.  It prints `PS2 MMI upsampling: PASS (48 cases)`
+on success.  The test is not executed during cross-compilation.
+
 For exercising these two kernels, use 8-bit JPEG images with 4:2:2
 or 4:2:0 subsampling and set `cinfo.do_fancy_upsampling = FALSE`
 **before** `jpeg_start_decompress()`.  libjpeg normally selects
