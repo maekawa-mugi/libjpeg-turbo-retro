@@ -542,6 +542,9 @@ endif()
 option(WITH_PS2_EXPERIMENTAL_MERGED
   "Enable experimental PS2 MMI 4-byte merged upsampling/color conversion" OFF)
 
+option(WITH_PS2_EXPERIMENTAL_MERGED_PMULTH
+  "Use experimental 8-lane PMULTH for the PS2 merged YCbCr color matrix" OFF)
+
 option(WITH_PS2_EXPERIMENTAL_COLOR
   "Enable experimental PS2 MMI 4-byte YCbCr to RGB conversion" OFF)
 
@@ -571,6 +574,10 @@ endif()
 
 if(WITH_PS2_EXPERIMENTAL_MERGED)
   target_compile_definitions(simd PRIVATE PS2_EXPERIMENTAL_MERGED=1)
+endif()
+
+if(WITH_PS2_EXPERIMENTAL_MERGED_PMULTH)
+  target_compile_definitions(simd PRIVATE PS2_EXPERIMENTAL_MERGED_PMULTH=1)
 endif()
 
 option(WITH_PS2_MMI_TESTS "Build PS2 MMI SIMD kernel verification ELFs" OFF)
