@@ -252,6 +252,48 @@ ps2_odd_products(const JLONG terms[8], JLONG products[8])
     products[i] = MULTIPLY(terms[i], factors[i]);
 }
 
+/*
+ * The even-part sqrt(2)*c(-6) rotation needs three independent products:
+ *
+ *   (z2 + z3) * FIX_0_541196100
+ *    z3       * -FIX_1_847759065
+ *    z2       * FIX_0_765366865
+ *
+ * Pack the three terms into an eight-halfword PMULTH operation.  Unlike
+ * the odd part this only uses three of eight lanes, so it is separately
+ * gated by PS2_EXPERIMENTAL_IDCT_EVEN for timing comparisons.
+ * The IJG fallback is mandatory when any operand is outside int16 range.
+ */
+static INLINE void
+ps2_even_products(JLONG z2, JLONG z3, JLONG products[3])
+{
+#if defined(PS2_EXPERIMENTAL_IDCT_EVEN)
+  if (sizeof(ISLOW_MULT_TYPE) == 2 && sizeof(JLONG) == 4 &&
+      sizeof(JCOEF) == 2 &&
+      z2 >= -32768 && z2 <= 32767 &&
+      z3 >= -32768 && z3 <= 32767 &&
+      z2 + z3 >= -32768 && z2 + z3 <= 32767) {
+    static const ISLOW_MULT_TYPE factors[8]
+      __attribute__((aligned(16))) = {
+        FIX_0_541196100, -FIX_1_847759065, FIX_0_765366865,
+        0, 0, 0, 0, 0
+      };
+    JCOEF lanes[8] __attribute__((aligned(16))) =
+      { (JCOEF)(z2 + z3), (JCOEF)z3, (JCOEF)z2, 0, 0, 0, 0, 0 };
+    JLONG result[8] __attribute__((aligned(16)));
+
+    ps2_mul8_mmi(lanes, factors, result);
+    products[0] = result[0];
+    products[1] = result[1];
+    products[2] = result[2];
+    return;
+  }
+#endif
+  products[0] = MULTIPLY(z2 + z3, FIX_0_541196100);
+  products[1] = MULTIPLY(z3, -FIX_1_847759065);
+  products[2] = MULTIPLY(z2, FIX_0_765366865);
+}
+
 /* Full block dequantization.  The MMI path is restricted to an aligned,
  * native short multiplier table, matching the 8-bit WITH_SIMD build.
  * An unaligned coefficient buffer or a non-short quant table falls
@@ -354,9 +396,14 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
     z2 = dequant[DCTSIZE * 2 + (int)(inptr - coef_block)];
     z3 = dequant[DCTSIZE * 6 + (int)(inptr - coef_block)];
 
-    z1 = MULTIPLY(z2 + z3, FIX_0_541196100);
-    tmp2 = z1 + MULTIPLY(z3, -FIX_1_847759065);
-    tmp3 = z1 + MULTIPLY(z2, FIX_0_765366865);
+    {
+      JLONG products[3];
+
+      ps2_even_products(z2, z3, products);
+      z1 = products[0];
+      tmp2 = z1 + products[1];
+      tmp3 = z1 + products[2];
+    }
 
     z2 = dequant[DCTSIZE * 0 + (int)(inptr - coef_block)];
     z3 = dequant[DCTSIZE * 4 + (int)(inptr - coef_block)];
@@ -471,9 +518,14 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
     z2 = (JLONG)wsptr[2];
     z3 = (JLONG)wsptr[6];
 
-    z1 = MULTIPLY(z2 + z3, FIX_0_541196100);
-    tmp2 = z1 + MULTIPLY(z3, -FIX_1_847759065);
-    tmp3 = z1 + MULTIPLY(z2, FIX_0_765366865);
+    {
+      JLONG products[3];
+
+      ps2_even_products(z2, z3, products);
+      z1 = products[0];
+      tmp2 = z1 + products[1];
+      tmp3 = z1 + products[2];
+    }
 
     tmp0 = LEFT_SHIFT((JLONG)wsptr[0] + (JLONG)wsptr[4], CONST_BITS);
     tmp1 = LEFT_SHIFT((JLONG)wsptr[0] - (JLONG)wsptr[4], CONST_BITS);
