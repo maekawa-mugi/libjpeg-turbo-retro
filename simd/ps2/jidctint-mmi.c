@@ -181,7 +181,11 @@ ps2_butterfly_pass2(const JLONG a[4], const JLONG b[4],
  * Eight simultaneous 16x16 -> 32-bit dequantization products.
  * PMULTH writes the low/high accumulators in the PS2-specific lane order:
  *   LO: {0,1,4,5}, HI: {2,3,6,7}.
- * PCPYLD/PCPYUD put the products back into natural 0..7 order.
+ * PCPYLD $13, HI, LO restores products 0..3 (low half from LO).
+ * PCPYUD $14, LO, HI restores products 4..7 (low half from LO).
+ * IMPORTANT: PCPYUD uses RS.upper64 as RD.lower64; reversing LO/HI
+ * silently swaps products 4,5 with 6,7.  test-mmi-primitives.c checks
+ * all eight values independently on the actual EE.
  *
  * Keep this in a separate non-inlined function so the R5900 HI/LO
  * accumulators are not live across other compiler-generated arithmetic.
