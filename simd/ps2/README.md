@@ -17,7 +17,7 @@ It is independent of `simd/mips64/`, which uses **Loongson's distinct
 - `h2v1` and `h2v2` compressor downsampling: process 16 output samples
   with 128-bit MMI, preserving IJG's alternating rounding biases and
   right-edge expansion before downsampling.
-- `JDCT_ISLOW` (accurate integer 8x8 IDCT): MMI-accelerated AC-zero
+- Optional `JDCT_ISLOW` (accurate integer 8x8 IDCT): MMI-accelerated AC-zero
   detection and DC-only shortcut.  Non-DC-only blocks execute the matching
   IJG 8x8 integer algorithm, with exact output range-table wrapping.
   This is a *partial* IDCT optimization, not a complete vector IDCT.
@@ -25,6 +25,10 @@ It is independent of `simd/mips64/`, which uses **Loongson's distinct
   **not yet an MMI FDCT, ifast IDCT, merged upsampler, or color converter**.
 - The backend is selected only with `WITH_SIMD=ON` for the PS2 EE
   toolchain.  Building with `WITH_SIMD=OFF` still uses generic C.
+- The IDCT dispatcher is **disabled by default** until performance and
+  bit-exactness are verified on actual PS2 hardware.  Set
+  `-DWITH_PS2_EXPERIMENTAL_IDCT=ON` to exercise it in normal JPEG decoding.
+  The IDCT standalone test builds independently of this setting.
 
 ## Build with PS2SDK
 
@@ -67,6 +71,6 @@ R5900 compilation, pixel equivalence, and PS2 execution have **not yet
 been tested**.  In addition to byte comparison, benchmark separately
 for low-entropy and high-entropy coefficient blocks: the IDCT MMI
 shortcut speeds DC-only blocks but requires a complete AC scan for
-other blocks.  If the latter regress, disable the IDCT dispatch until
-an MMI full-transform kernel is ready.  The toolchain check and the new assembly should be
+other blocks.  Keep `WITH_PS2_EXPERIMENTAL_IDCT=OFF` unless testing or
+benchmarking the IDCT path.  The toolchain check and the new assembly should be
 validated before treating this as a production optimization.
