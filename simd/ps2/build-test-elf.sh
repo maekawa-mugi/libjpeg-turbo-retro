@@ -58,6 +58,7 @@ cmake -S "$root" -B "$root/build-ps2" \
   -DWITH_SIMD=ON -DREQUIRE_SIMD=ON -DWITH_TOOLS=OFF \
   -DWITH_TURBOJPEG=OFF -DWITH_PS2_MMI_TESTS=ON \
   -DWITH_PS2_EXPERIMENTAL_IDCT=ON -DWITH_PS2_EXPERIMENTAL_COLOR=ON \
-  -DWITH_PS2_EXPERIMENTAL_IDCT_EVEN="${PS2_IDCT_EVEN:-OFF}"
+  -DWITH_PS2_EXPERIMENTAL_IDCT_EVEN="${PS2_IDCT_EVEN:-OFF}" \
+  -DWITH_PS2_EXPERIMENTAL_MERGED="${PS2_MERGED:-OFF}"
 cmake --build "$root/build-ps2" -j"${JOBS:-8}" --target ps2_mmi_test_suite
 echo "ELF: $root/build-ps2/simd/ps2_mmi_test_suite.elf"
