@@ -542,12 +542,20 @@ option(WITH_PS2_EXPERIMENTAL_IDCT
   "Enable experimental PS2 MMI dequantization, odd multiplications, and IDCT butterflies"
   OFF)
 
+option(WITH_PS2_EXPERIMENTAL_IDCT_EVEN
+  "Enable experimental 3-of-8-lane PS2 MMI IDCT even-part rotator (benchmark separately)"
+  OFF)
+
 add_library(simd OBJECT ps2/jsimdcpu.c ps2/jdsample-mmi.c
   ps2/jdsample-fancy-mmi.c ps2/jcsample-mmi.c
   ps2/jidctint-mmi.c ps2/jdcolor-mmi.c jsimd.c)
 
 if(WITH_PS2_EXPERIMENTAL_IDCT)
   target_compile_definitions(simd PRIVATE PS2_EXPERIMENTAL_IDCT=1)
+endif()
+
+if(WITH_PS2_EXPERIMENTAL_IDCT_EVEN)
+  target_compile_definitions(simd PRIVATE PS2_EXPERIMENTAL_IDCT_EVEN=1)
 endif()
 
 if(WITH_PS2_EXPERIMENTAL_COLOR)
