@@ -366,6 +366,14 @@ EXTERN(void) jsimd_h2v2_fancy_upsample_mmi
   (int max_v_samp_factor, JDIMENSION downsampled_width, JSAMPARRAY input_data,
    JSAMPARRAY *output_data_ptr);
 
+/* PlayStation 2 EE fancy 2:1 upsampling */
+EXTERN(void) jsimd_h2v1_fancy_upsample_ps2mmi
+  (int max_v_samp_factor, JDIMENSION downsampled_width, JSAMPARRAY input_data,
+   JSAMPARRAY *output_data_ptr);
+EXTERN(void) jsimd_h2v2_fancy_upsample_ps2mmi
+  (int max_v_samp_factor, JDIMENSION downsampled_width, JSAMPARRAY input_data,
+   JSAMPARRAY *output_data_ptr);
+
 
 /* Merged Upsampling/Color Conversion */
 
