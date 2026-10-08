@@ -188,7 +188,7 @@ ps2_butterfly_pass2(const JLONG a[4], const JLONG b[4],
  * The caller guarantees 16-byte alignment and a 16-bit quant table.
  */
 static __attribute__((noinline)) void
-ps2_dequant8_mmi(const JCOEF *coef, const ISLOW_MULT_TYPE *quant, JLONG *dest)
+ps2_mul8_mmi(const JCOEF *coef, const ISLOW_MULT_TYPE *quant, JLONG *dest)
 {
   __asm__ volatile(
     ".set push\n\t"
@@ -208,6 +208,50 @@ ps2_dequant8_mmi(const JCOEF *coef, const ISLOW_MULT_TYPE *quant, JLONG *dest)
     : "$8", "$9", "$10", "$11", "$12", "$13", "$14", "memory");
 }
 
+/*
+ * Eight independent LL&M odd-part multiplies:
+ * (tmp0,tmp1,tmp2,tmp3,z1,z2,z3,z4) * their respective FIX constants.
+ * The 16-bit MMI path is valid only when all intermediate operands fit
+ * exactly in a signed halfword.  Larger values take the original scalar
+ * MULTIPLY path; truncating them to short would silently corrupt the IDCT.
+ */
+static void
+ps2_odd_products(const JLONG terms[8], JLONG products[8])
+{
+  static const ISLOW_MULT_TYPE factors[8] __attribute__((aligned(16))) = {
+    FIX_0_298631336, FIX_2_053119869,
+    FIX_3_072711026, FIX_1_501321110,
+    -FIX_0_899976223, -FIX_2_562915447,
+    -FIX_1_961570560, -FIX_0_390180644
+  };
+  int i;
+  int fits = (sizeof(ISLOW_MULT_TYPE) == 2 && sizeof(JLONG) == 4 &&
+              sizeof(JCOEF) == 2);
+
+  if (fits) {
+    JCOEF lanes[8] __attribute__((aligned(16)));
+    JLONG vector_products[8] __attribute__((aligned(16)));
+
+    for (i = 0; i < 8; i++) {
+      if (terms[i] < -32768 || terms[i] > 32767) {
+        fits = 0;
+        break;
+      }
+      lanes[i] = (JCOEF)terms[i];
+    }
+    if (fits) {
+      ps2_mul8_mmi(lanes, factors, vector_products);
+      for (i = 0; i < 8; i++)
+        products[i] = vector_products[i];
+      return;
+    }
+  }
+
+  /* Use the same MULTIPLY16C16 semantics as src/jidctint.c. */
+  for (i = 0; i < 8; i++)
+    products[i] = MULTIPLY(terms[i], factors[i]);
+}
+
 /* Full block dequantization.  The MMI path is restricted to an aligned,
  * native short multiplier table, matching the 8-bit WITH_SIMD build.
  * An unaligned coefficient buffer or a non-short quant table falls
@@ -221,7 +265,7 @@ ps2_dequant_block(const JCOEF *coef, const ISLOW_MULT_TYPE *quant,
   if (sizeof(ISLOW_MULT_TYPE) == 2 &&
       (((uintptr_t)coef | (uintptr_t)quant | (uintptr_t)products) & 15) == 0) {
     for (i = 0; i < DCTSIZE2; i += 8)
-      ps2_dequant8_mmi(coef + i, quant + i, products + i);
+      ps2_mul8_mmi(coef + i, quant + i, products + i);
   } else {
     for (i = 0; i < DCTSIZE2; i++)
       products[i] = (JLONG)((ISLOW_MULT_TYPE)coef[i]) * quant[i];
@@ -340,14 +384,20 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
     z4 = tmp1 + tmp3;
     z5 = MULTIPLY(z3 + z4, FIX_1_175875602); /* sqrt(2) * c3 */
 
-    tmp0 = MULTIPLY(tmp0, FIX_0_298631336); /* sqrt(2) * (-c1+c3+c5-c7) */
-    tmp1 = MULTIPLY(tmp1, FIX_2_053119869); /* sqrt(2) * ( c1+c3-c5+c7) */
-    tmp2 = MULTIPLY(tmp2, FIX_3_072711026); /* sqrt(2) * ( c1+c3+c5-c7) */
-    tmp3 = MULTIPLY(tmp3, FIX_1_501321110); /* sqrt(2) * ( c1+c3-c5-c7) */
-    z1 = MULTIPLY(z1, -FIX_0_899976223); /* sqrt(2) * ( c7-c3) */
-    z2 = MULTIPLY(z2, -FIX_2_562915447); /* sqrt(2) * (-c1-c3) */
-    z3 = MULTIPLY(z3, -FIX_1_961570560); /* sqrt(2) * (-c3-c5) */
-    z4 = MULTIPLY(z4, -FIX_0_390180644); /* sqrt(2) * ( c5-c3) */
+    {
+      JLONG odd_terms[8] = { tmp0, tmp1, tmp2, tmp3, z1, z2, z3, z4 };
+      JLONG odd_products[8];
+
+      ps2_odd_products(odd_terms, odd_products);
+      tmp0 = odd_products[0];
+      tmp1 = odd_products[1];
+      tmp2 = odd_products[2];
+      tmp3 = odd_products[3];
+      z1 = odd_products[4];
+      z2 = odd_products[5];
+      z3 = odd_products[6];
+      z4 = odd_products[7];
+    }
 
     z3 += z5;
     z4 += z5;
@@ -448,14 +498,20 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
     z4 = tmp1 + tmp3;
     z5 = MULTIPLY(z3 + z4, FIX_1_175875602); /* sqrt(2) * c3 */
 
-    tmp0 = MULTIPLY(tmp0, FIX_0_298631336); /* sqrt(2) * (-c1+c3+c5-c7) */
-    tmp1 = MULTIPLY(tmp1, FIX_2_053119869); /* sqrt(2) * ( c1+c3-c5+c7) */
-    tmp2 = MULTIPLY(tmp2, FIX_3_072711026); /* sqrt(2) * ( c1+c3+c5-c7) */
-    tmp3 = MULTIPLY(tmp3, FIX_1_501321110); /* sqrt(2) * ( c1+c3-c5-c7) */
-    z1 = MULTIPLY(z1, -FIX_0_899976223); /* sqrt(2) * ( c7-c3) */
-    z2 = MULTIPLY(z2, -FIX_2_562915447); /* sqrt(2) * (-c1-c3) */
-    z3 = MULTIPLY(z3, -FIX_1_961570560); /* sqrt(2) * (-c3-c5) */
-    z4 = MULTIPLY(z4, -FIX_0_390180644); /* sqrt(2) * ( c5-c3) */
+    {
+      JLONG odd_terms[8] = { tmp0, tmp1, tmp2, tmp3, z1, z2, z3, z4 };
+      JLONG odd_products[8];
+
+      ps2_odd_products(odd_terms, odd_products);
+      tmp0 = odd_products[0];
+      tmp1 = odd_products[1];
+      tmp2 = odd_products[2];
+      tmp3 = odd_products[3];
+      z1 = odd_products[4];
+      z2 = odd_products[5];
+      z3 = odd_products[6];
+      z4 = odd_products[7];
+    }
 
     z3 += z5;
     z4 += z5;
