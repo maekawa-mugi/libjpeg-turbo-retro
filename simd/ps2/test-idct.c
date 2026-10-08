@@ -11,7 +11,7 @@
 
 #define ROW_BYTES 48
 
-static JCOEF coef[64] __attribute__((aligned(16)));
+static JCOEF coef_storage[64 + 16] __attribute__((aligned(16)));
 static ISLOW_MULT_TYPE quant[64];
 static JSAMPLE reference_mem[8][ROW_BYTES];
 static JSAMPLE ps2_mem[8][ROW_BYTES];
@@ -39,6 +39,7 @@ run_case(unsigned iteration, unsigned seed, int shifted)
   JSAMPLE *post = range_table + 256 + 128;
   unsigned state = seed + iteration * 7919U;
   int i, row;
+  JCOEFPTR coef = coef_storage + (shifted ? 1 : 0);
   unsigned output_col = shifted ? 7 : 0;
 
   memset(&cinfo, 0, sizeof(cinfo));
@@ -67,8 +68,8 @@ run_case(unsigned iteration, unsigned seed, int shifted)
       coef[i] = (JCOEF)((int)((state >> 12) % 129U) - 64);
     }
   }
-  /* Deliberately violate coefficient alignment for alternate cases, but
-   * preserve a valid coefficient allocation via an aligned copy below. */
+  /* The second pass uses an actually unaligned (but 2-byte aligned)
+   * coefficient pointer, forcing the scalar zero-AC detector. */
   for (row = 0; row < 8; row++) {
     reference_rows[row] = reference_mem[row];
     ps2_rows[row] = ps2_mem[row];
