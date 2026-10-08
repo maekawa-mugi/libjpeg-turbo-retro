@@ -287,6 +287,25 @@ jsimd_set_ycc_rgb(j_decompress_ptr cinfo)
     SET_SIMD_EXTRGB_COLOR_DECONVERTER(mmi);
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == PS2_EE && defined(PS2_EXPERIMENTAL_COLOR)
+  /* The current MMI packer accelerates 4-byte output formats only.
+   * Three-byte output and RGB565 use the existing portable C path. */
+  if (cinfo->master->simd_support & JSIMD_PS2_MMI) {
+    switch (cinfo->out_color_space) {
+    case JCS_EXT_RGBX:
+    case JCS_EXT_RGBA:
+    case JCS_EXT_BGRX:
+    case JCS_EXT_BGRA:
+    case JCS_EXT_XBGR:
+    case JCS_EXT_ABGR:
+    case JCS_EXT_XRGB:
+    case JCS_EXT_ARGB:
+      SET_SIMD_EXTRGB_COLOR_DECONVERTER(ps2mmi);
+      return JSIMD_PS2_MMI;
+    default:
+      break;
+    }
+  }
 #endif
 
   return JSIMD_NONE;
