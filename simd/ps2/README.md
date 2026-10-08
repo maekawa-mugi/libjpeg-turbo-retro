@@ -61,6 +61,57 @@ It is independent of `simd/mips64/`, which uses **Loongson's distinct
 
 ## Build with PS2SDK
 
+### Single ELF with an on-screen result
+
+With the GCC/newlib EE toolchain and PS2SDK available in WSL, run from
+the repository root:
+
+```sh
+bash simd/ps2/build-test-elf.sh
+```
+
+Set `PS2DEV` and `PS2SDK` if they are installed outside `/usr/local/ps2dev`.
+If the SDK is not installed, the script can build the required EE libraries
+from an existing checkout specified by `PS2SDK_SOURCE` (default:
+`$PS2DEV/ps2dev/build/ps2sdk`). This requires no dependency download.
+The copied SDK source, libraries, and startup object stay in
+`build-ps2-sdk/`; the compiler installation is not modified.
+
+Open `build-ps2/simd/ps2_mmi_test_suite.elf` in PCSX2 to run all six
+existing tests: MMI primitives, plain/fancy upsampling, downsampling,
+integer IDCT, and YCbCr color conversion. The runner uses PS2SDK's debug
+screen to display detailed failures and the final result:
+
+```text
+TEST: OK! (6/6 groups passed)
+```
+
+A failed comparison instead produces `TEST: FAIL!`, with the failing
+group and comparison details above it. The ELF sleeps after testing so
+the result remains visible until the emulator is reset or stopped.
+It uses deterministic generated test data and needs no external images.
+These are instruction and kernel tests, not a full JPEG-stream test or
+a performance benchmark.
+
+The default suite uses the scalar even-rotation stage. To test the
+experimental even-rotation variant, rebuild with:
+
+```sh
+PS2_IDCT_EVEN=ON bash simd/ps2/build-test-elf.sh
+```
+
+On 2026-10-09, the default suite and the static JPEG library were
+successfully compiled and linked with EE GCC 15.1.0 and the existing
+PS2SDK source checkout. The ELF header has the R5900 architecture flag,
+entry point `0x100e48`, and a load segment starting at `0x00100000`.
+The user then ran this ELF in PCSX2 and reported `TEST: OK!` for all six
+groups: 1024 primitive iterations, 48 plain upsampling cases, 128 fancy
+upsampling cases, 136 downsampling cases, 2048 IDCT reference comparisons,
+and 420 color conversion cases. This run used scalar even rotation;
+the experimental MMI even-rotation variant has not been verified.
+
+### Individual validation ELFs
+
 ```sh
 cmake -S . -B build-ps2 \
   -DCMAKE_TOOLCHAIN_FILE="$PS2DEV/share/ps2dev.cmake" \
@@ -161,8 +212,10 @@ Benchmark full decode separately for low- and high-entropy JPEG blocks.
 3. Compare pixels against the generic C plain upsampler.
 4. Measure full-frame time and, separately, the upsampling stage.
 
-R5900 compilation, pixel equivalence, and PS2 execution have **not yet
-been tested**.  In addition to byte comparison, benchmark separately
+R5900 compilation, linking, and kernel reference comparisons in PCSX2 have
+been verified for the default combined suite as described above. Actual
+PS2 hardware, full JPEG-stream processing, and performance have **not yet
+been tested**. In addition to byte comparison, benchmark separately
 for low-entropy and high-entropy coefficient blocks: the IDCT MMI
 shortcut can speed DC-only blocks but requires a complete AC scan for
 other blocks.  The PMULTH odd-part rotations and butterfly paths may have different

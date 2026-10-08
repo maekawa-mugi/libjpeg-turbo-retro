@@ -517,18 +517,18 @@ check_c_source_compiles("
   #endif
   int main(void) {
     __asm__ volatile(
-      \"pextlb $8, $8, $8\\n\\t\"
-      \"pextub $9, $8, $8\\n\\t\"
-      \"pmulth $10, $8, $8\\n\\t\"
-      \"pmflo $11\\n\\t\"
-      \"pmfhi $12\\n\\t\"
-      \"pcpyld $13, $12, $11\\n\\t\"
-      \"pcpyud $14, $11, $12\\n\\t\"
-      \"paddw $8, $8, $11\\n\\t\"
-      \"psubw $8, $8, $11\\n\\t\"
-      \"psraw $8, $8, 11\\n\\t\"
-      \"pmaxh $8, $8, $0\\n\\t\"
-      \"pminh $8, $8, $9\\n\\t\"
+      \"pextlb $8, $8, $8;\"
+      \"pextub $9, $8, $8;\"
+      \"pmulth $10, $8, $8;\"
+      \"pmflo $11;\"
+      \"pmfhi $12;\"
+      \"pcpyld $13, $12, $11;\"
+      \"pcpyud $14, $11, $12;\"
+      \"paddw $8, $8, $11;\"
+      \"psubw $8, $8, $11;\"
+      \"psraw $8, $8, 11;\"
+      \"pmaxh $8, $8, $0;\"
+      \"pminh $8, $8, $9;\"
       \"ppacb $9, $9, $8\"
       : : : \"$8\", \"$9\", \"$10\", \"$11\", \"$12\", \"$13\", \"$14\");
     return 0;
@@ -583,6 +583,27 @@ if(WITH_PS2_MMI_TESTS)
   add_executable(ps2_mmi_primitives_test ps2/test-mmi-primitives.c)
   add_executable(ps2_mmi_color_test ps2/test-color.c)
   target_link_libraries(ps2_mmi_color_test jpeg-static)
+
+  # Reuse the tests unchanged, giving each translation unit a unique entry.
+  set(PS2_TEST_OBJECTS)
+  foreach(test primitives upsample fancy downsample idct color)
+    if(test STREQUAL "primitives")
+      set(test_source ps2/test-mmi-primitives.c)
+    else()
+      set(test_source ps2/test-${test}.c)
+    endif()
+    add_library(ps2_test_${test} OBJECT ${test_source})
+    target_compile_definitions(ps2_test_${test} PRIVATE
+      main=ps2_test_${test} printf=ps2_test_printf puts=ps2_test_puts)
+    list(APPEND PS2_TEST_OBJECTS $<TARGET_OBJECTS:ps2_test_${test}>)
+  endforeach()
+  add_executable(ps2_mmi_test_suite ps2/test-suite.c ${PS2_TEST_OBJECTS})
+  set_target_properties(ps2_mmi_test_suite PROPERTIES SUFFIX ".elf")
+  target_link_libraries(ps2_mmi_test_suite jpeg-static -ldebug)
+  if(WITH_PS2_EXPERIMENTAL_IDCT_EVEN)
+    target_compile_definitions(ps2_mmi_test_suite PRIVATE
+      PS2_EXPERIMENTAL_IDCT_EVEN=1)
+  endif()
 endif()
 
 if(CMAKE_POSITION_INDEPENDENT_CODE OR ENABLE_SHARED)
