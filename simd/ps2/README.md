@@ -40,6 +40,15 @@ cmake -S . -B build-ps2 \
 cmake --build build-ps2 -j
 ```
 
+To build the standalone validation ELFs, add `-DWITH_PS2_MMI_TESTS=ON`
+to the configure command and run:
+
+```sh
+cmake --build build-ps2 --target \
+  ps2_mmi_upsample_test ps2_mmi_fancy_test \
+  ps2_mmi_downsample_test ps2_mmi_idct_test
+```
+
 For an optional PS2 ELF smoke test, also pass `-DWITH_PS2_MMI_TESTS=ON`
 to the configuration command.  Build targets `ps2_mmi_upsample_test`, `ps2_mmi_fancy_test`,
 `ps2_mmi_downsample_test`, and `ps2_mmi_idct_test` and run their
