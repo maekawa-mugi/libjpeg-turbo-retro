@@ -1,0 +1,11 @@
+# GCC/newlib PS2 EE toolchain.  Select SDK crt0 without overwriting GCC's copy.
+set(CMAKE_SYSTEM_NAME Generic)
+set(CMAKE_SYSTEM_PROCESSOR mips)
+set(PS2 TRUE)
+set(CMAKE_C_COMPILER "$ENV{PS2DEV}/ee/bin/mips64r5900el-ps2-elf-gcc")
+set(CMAKE_AR "$ENV{PS2DEV}/ee/bin/mips64r5900el-ps2-elf-ar")
+set(CMAKE_RANLIB "$ENV{PS2DEV}/ee/bin/mips64r5900el-ps2-elf-ranlib")
+set(CMAKE_EXECUTABLE_SUFFIX ".elf")
+set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+set(CMAKE_C_FLAGS_INIT "-D_EE -D__PS2__ -DPS2 -G0 -I$ENV{PS2SDK}/ee/include -I$ENV{PS2SDK}/common/include")
+set(CMAKE_EXE_LINKER_FLAGS_INIT "-B$ENV{PS2SDK}/ee/startup/ -L$ENV{PS2SDK}/ee/lib -T$ENV{PS2SDK}/ee/startup/linkfile -Wl,-zmax-page-size=128")

@@ -200,6 +200,8 @@ DEFINE_SIMD_EXTRGB_COLOR_DECONVERTERS(rvv)
 
 DEFINE_SIMD_EXTRGB_COLOR_DECONVERTERS(mmi)
 
+DEFINE_SIMD_EXTRGB_COLOR_DECONVERTERS(ps2mmi)
+
 
 /* YCbCr-to-RGB565 Color Conversion */
 
@@ -256,6 +258,14 @@ EXTERN(void) jsimd_h2v2_downsample_mmi
   (JDIMENSION image_width, int max_v_samp_factor, JDIMENSION v_samp_factor,
    JDIMENSION width_in_blocks, JSAMPARRAY input_data, JSAMPARRAY output_data);
 
+/* PlayStation 2 EE (R5900) 128-bit MMI plain downsampling */
+EXTERN(void) jsimd_h2v1_downsample_ps2mmi
+  (JDIMENSION image_width, int max_v_samp_factor, JDIMENSION v_samp_factor,
+   JDIMENSION width_in_blocks, JSAMPARRAY input_data, JSAMPARRAY output_data);
+EXTERN(void) jsimd_h2v2_downsample_ps2mmi
+  (JDIMENSION image_width, int max_v_samp_factor, JDIMENSION v_samp_factor,
+   JDIMENSION width_in_blocks, JSAMPARRAY input_data, JSAMPARRAY output_data);
+
 
 /* Plain Upsampling */
 
@@ -298,6 +308,14 @@ EXTERN(void) jsimd_h2v1_upsample_rvv
   (int max_v_samp_factor, JDIMENSION output_width, JSAMPARRAY input_data,
    JSAMPARRAY *output_data_ptr);
 EXTERN(void) jsimd_h2v2_upsample_rvv
+  (int max_v_samp_factor, JDIMENSION output_width, JSAMPARRAY input_data,
+   JSAMPARRAY *output_data_ptr);
+
+/* PlayStation 2 Emotion Engine (R5900) 128-bit MMI plain upsampling */
+EXTERN(void) jsimd_h2v1_upsample_ps2mmi
+  (int max_v_samp_factor, JDIMENSION output_width, JSAMPARRAY input_data,
+   JSAMPARRAY *output_data_ptr);
+EXTERN(void) jsimd_h2v2_upsample_ps2mmi
   (int max_v_samp_factor, JDIMENSION output_width, JSAMPARRAY input_data,
    JSAMPARRAY *output_data_ptr);
 
@@ -355,6 +373,14 @@ EXTERN(void) jsimd_h2v1_fancy_upsample_mmi
   (int max_v_samp_factor, JDIMENSION downsampled_width, JSAMPARRAY input_data,
    JSAMPARRAY *output_data_ptr);
 EXTERN(void) jsimd_h2v2_fancy_upsample_mmi
+  (int max_v_samp_factor, JDIMENSION downsampled_width, JSAMPARRAY input_data,
+   JSAMPARRAY *output_data_ptr);
+
+/* PlayStation 2 EE fancy 2:1 upsampling */
+EXTERN(void) jsimd_h2v1_fancy_upsample_ps2mmi
+  (int max_v_samp_factor, JDIMENSION downsampled_width, JSAMPARRAY input_data,
+   JSAMPARRAY *output_data_ptr);
+EXTERN(void) jsimd_h2v2_fancy_upsample_ps2mmi
   (int max_v_samp_factor, JDIMENSION downsampled_width, JSAMPARRAY input_data,
    JSAMPARRAY *output_data_ptr);
 
@@ -608,6 +634,11 @@ EXTERN(void) jsimd_idct_islow_mmi
   (void *dct_table, JCOEFPTR coef_block, JSAMPARRAY output_buf,
    JDIMENSION output_col);
 EXTERN(void) jsimd_idct_ifast_mmi
+  (void *dct_table, JCOEFPTR coef_block, JSAMPARRAY output_buf,
+   JDIMENSION output_col);
+
+/* PlayStation 2 R5900 MMI DC-sparse optimized accurate integer IDCT */
+EXTERN(void) jsimd_idct_islow_ps2mmi
   (void *dct_table, JCOEFPTR coef_block, JSAMPARRAY output_buf,
    JDIMENSION output_col);
 

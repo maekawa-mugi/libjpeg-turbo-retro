@@ -3,3 +3,4 @@
 *.ppm binary
 *.pgm binary
 /ChangeLog.md conflict-marker-size=8
+/simd/ps2/*.sh text eol=lf

@@ -502,6 +502,116 @@ endif()
 
 
 ###############################################################################
+# PlayStation 2 Emotion Engine (R5900, 128-bit MMI)
+###############################################################################
+
+elseif(CPU_TYPE STREQUAL "mips" AND PS2)
+
+set(SIMD_ARCHITECTURE PS2_EE PARENT_SCOPE)
+
+# The PS2SDK EE CMake toolchain sets CPU_TYPE=mips and PS2=TRUE.
+# Never route the R5900 into the unrelated Loongson MMI backend.
+check_c_source_compiles("
+  #if !defined(__PS2__)
+  #error \"The PS2 EE toolchain is required\"
+  #endif
+  int main(void) {
+    __asm__ volatile(
+      \"pextlb $8, $8, $8;\"
+      \"pextub $9, $8, $8;\"
+      \"pmulth $10, $8, $8;\"
+      \"pmflo $11;\"
+      \"pmfhi $12;\"
+      \"pcpyld $13, $12, $11;\"
+      \"pcpyud $14, $11, $12;\"
+      \"paddw $8, $8, $11;\"
+      \"psubw $8, $8, $11;\"
+      \"psraw $8, $8, 11;\"
+      \"pmaxh $8, $8, $0;\"
+      \"pminh $8, $8, $9;\"
+      \"ppacb $9, $9, $8\"
+      : : : \"$8\", \"$9\", \"$10\", \"$11\", \"$12\", \"$13\", \"$14\");
+    return 0;
+  }" HAVE_PS2_MMI)
+
+if(NOT HAVE_PS2_MMI)
+  simd_fail("PS2 EE MMI compiler/assembler support is unavailable")
+  return()
+endif()
+
+option(WITH_PS2_EXPERIMENTAL_COLOR
+  "Enable experimental PS2 MMI 4-byte YCbCr to RGB conversion" OFF)
+
+option(WITH_PS2_EXPERIMENTAL_IDCT
+  "Enable experimental PS2 MMI dequantization, odd multiplications, and IDCT butterflies"
+  OFF)
+
+option(WITH_PS2_EXPERIMENTAL_IDCT_EVEN
+  "Enable experimental 3-of-8-lane PS2 MMI IDCT even-part rotator (benchmark separately)"
+  OFF)
+
+add_library(simd OBJECT ps2/jsimdcpu.c ps2/jdsample-mmi.c
+  ps2/jdsample-fancy-mmi.c ps2/jcsample-mmi.c
+  ps2/jidctint-mmi.c ps2/jdcolor-mmi.c jsimd.c)
+
+if(WITH_PS2_EXPERIMENTAL_IDCT)
+  target_compile_definitions(simd PRIVATE PS2_EXPERIMENTAL_IDCT=1)
+endif()
+
+if(WITH_PS2_EXPERIMENTAL_IDCT_EVEN)
+  target_compile_definitions(simd PRIVATE PS2_EXPERIMENTAL_IDCT_EVEN=1)
+endif()
+
+if(WITH_PS2_EXPERIMENTAL_COLOR)
+  target_compile_definitions(simd PRIVATE PS2_EXPERIMENTAL_COLOR=1)
+endif()
+
+option(WITH_PS2_MMI_TESTS "Build PS2 MMI SIMD kernel verification ELFs" OFF)
+if(WITH_PS2_MMI_TESTS)
+  if(NOT ENABLE_STATIC)
+    message(FATAL_ERROR "WITH_PS2_MMI_TESTS requires ENABLE_STATIC=ON")
+  endif()
+  add_executable(ps2_mmi_upsample_test ps2/test-upsample.c)
+  target_link_libraries(ps2_mmi_upsample_test jpeg-static)
+  add_executable(ps2_mmi_fancy_test ps2/test-fancy.c)
+  target_link_libraries(ps2_mmi_fancy_test jpeg-static)
+  add_executable(ps2_mmi_downsample_test ps2/test-downsample.c)
+  target_link_libraries(ps2_mmi_downsample_test jpeg-static)
+  add_executable(ps2_mmi_idct_test ps2/test-idct.c)
+  target_link_libraries(ps2_mmi_idct_test jpeg-static)
+  # Independent R5900 instruction semantics test; does not need libjpeg.
+  add_executable(ps2_mmi_primitives_test ps2/test-mmi-primitives.c)
+  add_executable(ps2_mmi_color_test ps2/test-color.c)
+  target_link_libraries(ps2_mmi_color_test jpeg-static)
+
+  # Reuse the tests unchanged, giving each translation unit a unique entry.
+  set(PS2_TEST_OBJECTS)
+  foreach(test primitives upsample fancy downsample idct color)
+    if(test STREQUAL "primitives")
+      set(test_source ps2/test-mmi-primitives.c)
+    else()
+      set(test_source ps2/test-${test}.c)
+    endif()
+    add_library(ps2_test_${test} OBJECT ${test_source})
+    target_compile_definitions(ps2_test_${test} PRIVATE
+      main=ps2_test_${test} printf=ps2_test_printf puts=ps2_test_puts)
+    list(APPEND PS2_TEST_OBJECTS $<TARGET_OBJECTS:ps2_test_${test}>)
+  endforeach()
+  add_executable(ps2_mmi_test_suite ps2/test-suite.c ${PS2_TEST_OBJECTS})
+  set_target_properties(ps2_mmi_test_suite PROPERTIES SUFFIX ".elf")
+  target_link_libraries(ps2_mmi_test_suite jpeg-static -ldebug)
+  if(WITH_PS2_EXPERIMENTAL_IDCT_EVEN)
+    target_compile_definitions(ps2_mmi_test_suite PRIVATE
+      PS2_EXPERIMENTAL_IDCT_EVEN=1)
+  endif()
+endif()
+
+if(CMAKE_POSITION_INDEPENDENT_CODE OR ENABLE_SHARED)
+  set_target_properties(simd PROPERTIES POSITION_INDEPENDENT_CODE 1)
+endif()
+
+
+###############################################################################
 # MIPS64 (Intrinsics)
 ###############################################################################
 

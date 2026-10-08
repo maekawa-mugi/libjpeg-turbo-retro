@@ -287,6 +287,25 @@ jsimd_set_ycc_rgb(j_decompress_ptr cinfo)
     SET_SIMD_EXTRGB_COLOR_DECONVERTER(mmi);
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == PS2_EE && defined(PS2_EXPERIMENTAL_COLOR)
+  /* The current MMI packer accelerates 4-byte output formats only.
+   * Three-byte output and RGB565 use the existing portable C path. */
+  if (cinfo->master->simd_support & JSIMD_PS2_MMI) {
+    switch (cinfo->out_color_space) {
+    case JCS_EXT_RGBX:
+    case JCS_EXT_RGBA:
+    case JCS_EXT_BGRX:
+    case JCS_EXT_BGRA:
+    case JCS_EXT_XBGR:
+    case JCS_EXT_ABGR:
+    case JCS_EXT_XRGB:
+    case JCS_EXT_ARGB:
+      SET_SIMD_EXTRGB_COLOR_DECONVERTER(ps2mmi);
+      return JSIMD_PS2_MMI;
+    default:
+      break;
+    }
+  }
 #endif
 
   return JSIMD_NONE;
@@ -368,6 +387,11 @@ jsimd_set_h2v1_downsample(j_compress_ptr cinfo)
     cinfo->downsample->h2v1_downsample_simd = jsimd_h2v1_downsample_rvv;
     return JSIMD_RVV;
   }
+#elif SIMD_ARCHITECTURE == PS2_EE
+  if (cinfo->master->simd_support & JSIMD_PS2_MMI) {
+    cinfo->downsample->h2v1_downsample_simd = jsimd_h2v1_downsample_ps2mmi;
+    return JSIMD_PS2_MMI;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -433,6 +457,11 @@ jsimd_set_h2v2_downsample(j_compress_ptr cinfo)
     cinfo->downsample->h2v2_downsample_simd = jsimd_h2v2_downsample_mmi;
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == PS2_EE
+  if (cinfo->master->simd_support & JSIMD_PS2_MMI) {
+    cinfo->downsample->h2v2_downsample_simd = jsimd_h2v2_downsample_ps2mmi;
+    return JSIMD_PS2_MMI;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -493,6 +522,11 @@ jsimd_set_h2v1_upsample(j_decompress_ptr cinfo)
     cinfo->upsample->h2v1_upsample_simd = jsimd_h2v1_upsample_rvv;
     return JSIMD_RVV;
   }
+#elif SIMD_ARCHITECTURE == PS2_EE
+  if (cinfo->master->simd_support & JSIMD_PS2_MMI) {
+    cinfo->upsample->h2v1_upsample_simd = jsimd_h2v1_upsample_ps2mmi;
+    return JSIMD_PS2_MMI;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -550,6 +584,11 @@ jsimd_set_h2v2_upsample(j_decompress_ptr cinfo)
   if (cinfo->master->simd_support & JSIMD_RVV) {
     cinfo->upsample->h2v2_upsample_simd = jsimd_h2v2_upsample_rvv;
     return JSIMD_RVV;
+  }
+#elif SIMD_ARCHITECTURE == PS2_EE
+  if (cinfo->master->simd_support & JSIMD_PS2_MMI) {
+    cinfo->upsample->h2v2_upsample_simd = jsimd_h2v2_upsample_ps2mmi;
+    return JSIMD_PS2_MMI;
   }
 #endif
 
@@ -616,6 +655,12 @@ jsimd_set_h2v1_fancy_upsample(j_decompress_ptr cinfo)
     cinfo->upsample->h2v1_upsample_simd = jsimd_h2v1_fancy_upsample_mmi;
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == PS2_EE
+  if (cinfo->master->simd_support & JSIMD_PS2_MMI) {
+    cinfo->upsample->h2v1_upsample_simd =
+      jsimd_h2v1_fancy_upsample_ps2mmi;
+    return JSIMD_PS2_MMI;
+  }
 #endif
 
   return JSIMD_NONE;
@@ -680,6 +725,12 @@ jsimd_set_h2v2_fancy_upsample(j_decompress_ptr cinfo)
   if (cinfo->master->simd_support & JSIMD_MMI) {
     cinfo->upsample->h2v2_upsample_simd = jsimd_h2v2_fancy_upsample_mmi;
     return JSIMD_MMI;
+  }
+#elif SIMD_ARCHITECTURE == PS2_EE
+  if (cinfo->master->simd_support & JSIMD_PS2_MMI) {
+    cinfo->upsample->h2v2_upsample_simd =
+      jsimd_h2v2_fancy_upsample_ps2mmi;
+    return JSIMD_PS2_MMI;
   }
 #endif
 
@@ -1200,6 +1251,11 @@ jsimd_set_idct_islow(j_decompress_ptr cinfo)
   if (cinfo->master->simd_support & JSIMD_MMI) {
     cinfo->idct->idct_simd = jsimd_idct_islow_mmi;
     return JSIMD_MMI;
+  }
+#elif SIMD_ARCHITECTURE == PS2_EE && defined(PS2_EXPERIMENTAL_IDCT)
+  if (cinfo->master->simd_support & JSIMD_PS2_MMI) {
+    cinfo->idct->idct_simd = jsimd_idct_islow_ps2mmi;
+    return JSIMD_PS2_MMI;
   }
 #endif
 
