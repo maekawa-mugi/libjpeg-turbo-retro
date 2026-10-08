@@ -102,6 +102,78 @@ ps2_dc_only(const JCOEF *coefficients)
   return (reduced[0] | reduced[1] | reduced[2] | reduced[3]) == 0;
 }
 
+
+/*
+ * The last Loeffler butterfly has four independent pairs:
+ *   {tmp10,tmp11,tmp12,tmp13} +/- {tmp3,tmp2,tmp1,tmp0}.
+ * Evaluate four 32-bit signed lanes using R5900 MMI.  Add the same
+ * rounding bias as IJG DESCALE before the arithmetic right shift.
+ * All operands are explicitly 16-byte-aligned local arrays.
+ */
+static INLINE void
+ps2_butterfly_pass1(const JLONG a[4], const JLONG b[4],
+        JLONG plus[4], JLONG minus[4])
+{
+  static const JLONG round_bias[4] __attribute__((aligned(16))) =
+    { 1 << (11 - 1), 1 << (11 - 1),
+      1 << (11 - 1), 1 << (11 - 1) };
+
+  __asm__ volatile(
+    ".set push\n\t"
+    ".set noreorder\n\t"
+    "lq $8, 0(%0)\n\t"
+    "lq $9, 0(%1)\n\t"
+    "lq $10, 0(%2)\n\t"
+    "paddw $11, $8, $9\n\t"
+    "psubw $12, $8, $9\n\t"
+    "paddw $11, $11, $10\n\t"
+    "paddw $12, $12, $10\n\t"
+    "psraw $11, $11, 11\n\t"
+    "psraw $12, $12, 11\n\t"
+    "sq $11, 0(%3)\n\t"
+    "sq $12, 0(%4)\n\t"
+    ".set pop\n\t"
+    :
+    : "r" (a), "r" (b), "r" (round_bias), "r" (plus), "r" (minus)
+    : "$8", "$9", "$10", "$11", "$12", "memory");
+}
+
+
+/*
+ * The last Loeffler butterfly has four independent pairs:
+ *   {tmp10,tmp11,tmp12,tmp13} +/- {tmp3,tmp2,tmp1,tmp0}.
+ * Evaluate four 32-bit signed lanes using R5900 MMI.  Add the same
+ * rounding bias as IJG DESCALE before the arithmetic right shift.
+ * All operands are explicitly 16-byte-aligned local arrays.
+ */
+static INLINE void
+ps2_butterfly_pass2(const JLONG a[4], const JLONG b[4],
+        JLONG plus[4], JLONG minus[4])
+{
+  static const JLONG round_bias[4] __attribute__((aligned(16))) =
+    { 1 << (18 - 1), 1 << (18 - 1),
+      1 << (18 - 1), 1 << (18 - 1) };
+
+  __asm__ volatile(
+    ".set push\n\t"
+    ".set noreorder\n\t"
+    "lq $8, 0(%0)\n\t"
+    "lq $9, 0(%1)\n\t"
+    "lq $10, 0(%2)\n\t"
+    "paddw $11, $8, $9\n\t"
+    "psubw $12, $8, $9\n\t"
+    "paddw $11, $11, $10\n\t"
+    "paddw $12, $12, $10\n\t"
+    "psraw $11, $11, 18\n\t"
+    "psraw $12, $12, 18\n\t"
+    "sq $11, 0(%3)\n\t"
+    "sq $12, 0(%4)\n\t"
+    ".set pop\n\t"
+    :
+    : "r" (a), "r" (b), "r" (round_bias), "r" (plus), "r" (minus)
+    : "$8", "$9", "$10", "$11", "$12", "memory");
+}
+
 /*
  * IJG reference LL&M transform (unaltered fixed-point constants, shifts,
  * and 8-bit limiting, except for the MMI DC-only early exit).
@@ -235,14 +307,21 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
 
     /* Final output stage: inputs are tmp10..tmp13, tmp0..tmp3 */
 
-    wsptr[DCTSIZE * 0] = (int)DESCALE(tmp10 + tmp3, CONST_BITS - PASS1_BITS);
-    wsptr[DCTSIZE * 7] = (int)DESCALE(tmp10 - tmp3, CONST_BITS - PASS1_BITS);
-    wsptr[DCTSIZE * 1] = (int)DESCALE(tmp11 + tmp2, CONST_BITS - PASS1_BITS);
-    wsptr[DCTSIZE * 6] = (int)DESCALE(tmp11 - tmp2, CONST_BITS - PASS1_BITS);
-    wsptr[DCTSIZE * 2] = (int)DESCALE(tmp12 + tmp1, CONST_BITS - PASS1_BITS);
-    wsptr[DCTSIZE * 5] = (int)DESCALE(tmp12 - tmp1, CONST_BITS - PASS1_BITS);
-    wsptr[DCTSIZE * 3] = (int)DESCALE(tmp13 + tmp0, CONST_BITS - PASS1_BITS);
-    wsptr[DCTSIZE * 4] = (int)DESCALE(tmp13 - tmp0, CONST_BITS - PASS1_BITS);
+    {
+      JLONG aa[4] __attribute__((aligned(16))) =
+        { tmp10, tmp11, tmp12, tmp13 };
+      JLONG bb[4] __attribute__((aligned(16))) =
+        { tmp3, tmp2, tmp1, tmp0 };
+      JLONG sum[4] __attribute__((aligned(16)));
+      JLONG diff[4] __attribute__((aligned(16)));
+      int k;
+
+      ps2_butterfly_pass1(aa, bb, sum, diff);
+      for (k = 0; k < 4; k++) {
+        wsptr[DCTSIZE * k] = (int)sum[k];
+        wsptr[DCTSIZE * (7 - k)] = (int)diff[k];
+      }
+    }
 
     inptr++;                    /* advance pointers to next column */
     quantptr++;
@@ -337,30 +416,21 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
 
     /* Final output stage: inputs are tmp10..tmp13, tmp0..tmp3 */
 
-    outptr[0] = ps2_idct_range((int)DESCALE(tmp10 + tmp3,
-                                         CONST_BITS + PASS1_BITS + 3) &
-                            RANGE_MASK);
-    outptr[7] = ps2_idct_range((int)DESCALE(tmp10 - tmp3,
-                                         CONST_BITS + PASS1_BITS + 3) &
-                            RANGE_MASK);
-    outptr[1] = ps2_idct_range((int)DESCALE(tmp11 + tmp2,
-                                         CONST_BITS + PASS1_BITS + 3) &
-                            RANGE_MASK);
-    outptr[6] = ps2_idct_range((int)DESCALE(tmp11 - tmp2,
-                                         CONST_BITS + PASS1_BITS + 3) &
-                            RANGE_MASK);
-    outptr[2] = ps2_idct_range((int)DESCALE(tmp12 + tmp1,
-                                         CONST_BITS + PASS1_BITS + 3) &
-                            RANGE_MASK);
-    outptr[5] = ps2_idct_range((int)DESCALE(tmp12 - tmp1,
-                                         CONST_BITS + PASS1_BITS + 3) &
-                            RANGE_MASK);
-    outptr[3] = ps2_idct_range((int)DESCALE(tmp13 + tmp0,
-                                         CONST_BITS + PASS1_BITS + 3) &
-                            RANGE_MASK);
-    outptr[4] = ps2_idct_range((int)DESCALE(tmp13 - tmp0,
-                                         CONST_BITS + PASS1_BITS + 3) &
-                            RANGE_MASK);
+    {
+      JLONG aa[4] __attribute__((aligned(16))) =
+        { tmp10, tmp11, tmp12, tmp13 };
+      JLONG bb[4] __attribute__((aligned(16))) =
+        { tmp3, tmp2, tmp1, tmp0 };
+      JLONG sum[4] __attribute__((aligned(16)));
+      JLONG diff[4] __attribute__((aligned(16)));
+      int k;
+
+      ps2_butterfly_pass2(aa, bb, sum, diff);
+      for (k = 0; k < 4; k++) {
+        outptr[k] = ps2_idct_range((int)sum[k] & RANGE_MASK);
+        outptr[7 - k] = ps2_idct_range((int)diff[k] & RANGE_MASK);
+      }
+    }
 
     wsptr += DCTSIZE;           /* advance pointer to next row */
   }
