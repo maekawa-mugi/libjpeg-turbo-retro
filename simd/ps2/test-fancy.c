@@ -27,7 +27,7 @@ verify(unsigned width, int vertical, unsigned extra, unsigned seed)
 {
   JSAMPARRAY input = input_rows + 1; /* input[-1] and input[+2] are valid */
   JSAMPARRAY output = output_rows;
-  int r, col, nrows = vertical == 2 ? 2 : NROWS;
+  int r, col;
 
   for (r = 0; r < NROWS + 2; r++) {
     input_rows[r] = aligned_ptr(input_mem[r], extra);
@@ -81,7 +81,6 @@ verify(unsigned width, int vertical, unsigned extra, unsigned seed)
     }
   }
 
-  (void)nrows;
   return 0;
 }
 
