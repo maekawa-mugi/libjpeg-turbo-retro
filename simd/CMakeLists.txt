@@ -535,6 +535,8 @@ if(WITH_PS2_MMI_TESTS)
   endif()
   add_executable(ps2_mmi_upsample_test ps2/test-upsample.c)
   target_link_libraries(ps2_mmi_upsample_test jpeg-static)
+  add_executable(ps2_mmi_fancy_test ps2/test-fancy.c)
+  target_link_libraries(ps2_mmi_fancy_test jpeg-static)
 endif()
 
 if(CMAKE_POSITION_INDEPENDENT_CODE OR ENABLE_SHARED)
