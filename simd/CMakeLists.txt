@@ -557,6 +557,8 @@ if(WITH_PS2_MMI_TESTS)
   target_link_libraries(ps2_mmi_downsample_test jpeg-static)
   add_executable(ps2_mmi_idct_test ps2/test-idct.c)
   target_link_libraries(ps2_mmi_idct_test jpeg-static)
+  add_executable(ps2_mmi_color_test ps2/test-color.c)
+  target_link_libraries(ps2_mmi_color_test jpeg-static)
 endif()
 
 if(CMAKE_POSITION_INDEPENDENT_CODE OR ENABLE_SHARED)
