@@ -21,14 +21,24 @@ It is independent of `simd/mips64/`, which uses **Loongson's distinct
   detection and DC-only shortcut.  Non-DC-only blocks execute the matching
   IJG 8x8 integer algorithm, with exact output range-table wrapping.
   This is a *partial* IDCT optimization, not a complete vector IDCT.
-- All remaining JPEG SIMD hooks use generic C.  In particular, this is
-  **not yet an MMI FDCT, ifast IDCT, merged upsampler, or color converter**.
+- Optional YCbCr to 4-byte RGBX/RGBA/BGRX/BGRA/XBGR/ABGR/XRGB/ARGB:
+  16.16 fixed-point color calculation, followed by 128-bit MMI
+  halfword clipping and packing of four pixels.  This is an experimental
+  *partial* SIMD converter, not yet a vectorized color matrix.
+  Three-byte RGB and BGR continue to use the existing C converter.
+- Remaining JPEG SIMD hooks use generic C, including
+  **MMI FDCT, ifast IDCT, and merged upsampling**.
 - The backend is selected only with `WITH_SIMD=ON` for the PS2 EE
   toolchain.  Building with `WITH_SIMD=OFF` still uses generic C.
 - The IDCT dispatcher is **disabled by default** until performance and
   bit-exactness are verified on actual PS2 hardware.  Set
   `-DWITH_PS2_EXPERIMENTAL_IDCT=ON` to exercise it in normal JPEG decoding.
   The IDCT standalone test builds independently of this setting.
+
+- The color converter is **disabled by default** until compiled and
+  benchmarked on PS2.  Pass `-DWITH_PS2_EXPERIMENTAL_COLOR=ON` to enable
+  the four-byte YCbCr-to-RGB MMI output path.  It is a separate switch
+  from `WITH_PS2_EXPERIMENTAL_IDCT`.
 
 ## Build with PS2SDK
 
@@ -46,7 +56,8 @@ to the configure command and run:
 ```sh
 cmake --build build-ps2 --target \
   ps2_mmi_upsample_test ps2_mmi_fancy_test \
-  ps2_mmi_downsample_test ps2_mmi_idct_test
+  ps2_mmi_downsample_test ps2_mmi_idct_test \
+  ps2_mmi_color_test
 ```
 
 Run these ELFs on PS2 hardware or an emulator.  The
@@ -56,7 +67,10 @@ different data patterns, boundaries, and deliberately unaligned rows).
 All tests check that output padding is untouched.  The downsampling
 test covers 136 cases (including right-edge padding and alternating
 rounding), and the IDCT test compares 512 blocks against the library's
-reference integer IDCT.  The tests are **not** executed during
+reference integer IDCT.  The color test covers 420 image-row/layout
+cases, including all four-byte output layouts, three-byte scalar
+reference layouts, unaligned destinations, chroma extremes, and buffer
+guard bytes.  The tests are **not** executed during
 cross-compilation.
 
 For exercising the plain kernels, use 8-bit JPEG images with 4:2:2 or
