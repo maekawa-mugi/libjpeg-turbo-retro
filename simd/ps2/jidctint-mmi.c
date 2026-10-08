@@ -199,7 +199,7 @@ ps2_mul8_mmi(const JCOEF *coef, const ISLOW_MULT_TYPE *quant, JLONG *dest)
     "pmflo $11\n\t"
     "pmfhi $12\n\t"
     "pcpyld $13, $12, $11\n\t"
-    "pcpyud $14, $12, $11\n\t"
+    "pcpyud $14, $11, $12\n\t"
     "sq $13, 0(%2)\n\t"
     "sq $14, 16(%2)\n\t"
     ".set pop\n\t"
