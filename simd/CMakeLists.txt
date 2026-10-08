@@ -525,7 +525,8 @@ if(NOT HAVE_PS2_MMI)
   return()
 endif()
 
-add_library(simd OBJECT ps2/jsimdcpu.c ps2/jdsample-mmi.c jsimd.c)
+add_library(simd OBJECT ps2/jsimdcpu.c ps2/jdsample-mmi.c
+  ps2/jdsample-fancy-mmi.c jsimd.c)
 
 option(WITH_PS2_MMI_TESTS "Build PS2 MMI plain-upsample smoke-test ELF" OFF)
 if(WITH_PS2_MMI_TESTS)
