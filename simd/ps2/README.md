@@ -8,12 +8,14 @@ It is independent of `simd/mips64/`, which uses **Loongson's distinct
 
 - `h2v1` plain upsampling: 16-byte MMI loads, byte interleave, 32-byte
   stores, with a bounded scalar tail.
-- `h2v2` plain upsampling: the same horizontal expansion, followed by
-  duplication of the expanded output row.
+- `h2v2` plain upsampling: duplicate the expanded MMI registers directly into
+  both output rows, avoiding a subsequent row-sized `memcpy()` for aligned
+  buffers.  Unaligned input/output rows and odd-width tails remain scalar.
 - `h2v1` fancy upsampling: exact 3:1 triangle interpolation with eight
   horizontal pixels at a time processed in R5900 MMI.
-- `h2v2` fancy upsampling: eight-wide MMI vertical interpolation followed
-  by bit-exact horizontal interpolation in C.
+- `h2v2` fancy upsampling: fused vertical 3:1 and horizontal 3:1 filtering
+  in eight 16-bit MMI lanes for interior samples, followed by interleaved
+  16-byte stores.  Edge pixels and unaligned destinations use bit-exact C.
 - `h2v1` and `h2v2` compressor downsampling: process 16 output samples
   with 128-bit MMI, preserving IJG's alternating rounding biases and
   right-edge expansion before downsampling.
@@ -109,6 +111,9 @@ groups: 1024 primitive iterations, 48 plain upsampling cases, 128 fancy
 upsampling cases, 136 downsampling cases, 2048 IDCT reference comparisons,
 and 420 color conversion cases. This run used scalar even rotation;
 the experimental MMI even-rotation variant has not been verified.
+The subsequent h2v2 plain/fancy changes have **not** been rerun in PCSX2.
+The updated standalone suite now exercises 272 plain and 320 fancy cases;
+rebuilding and rerunning the ELF is required before claiming a new PASS.
 
 ### Individual validation ELFs
 
@@ -131,9 +136,11 @@ cmake --build build-ps2 --target \
 ```
 
 Run these ELFs on PS2 hardware or an emulator.  The
-plain test covers 48 combinations of width, sampling ratio, and pointer
-alignment; the fancy test covers 128 (including source context rows,
-different data patterns, boundaries, and deliberately unaligned rows).
+plain test now covers 272 combinations of width, sampling ratio, and
+independent input/output-row alignment (including mixed alignment within a
+h2v2 row pair); the fancy test now covers 320 cases, including independently
+aligned and unaligned source/destination rows, source context rows, and SIMD
+boundary widths.
 All tests check that output padding is untouched.  The downsampling
 test covers 136 cases (including right-edge padding and alternating
 rounding), and the IDCT test compares 2048 blocks (DC-only, sparse, dense,
@@ -212,8 +219,9 @@ Benchmark full decode separately for low- and high-entropy JPEG blocks.
 3. Compare pixels against the generic C plain upsampler.
 4. Measure full-frame time and, separately, the upsampling stage.
 
-R5900 compilation, linking, and kernel reference comparisons in PCSX2 have
-been verified for the default combined suite as described above. Actual
+The original main-branch MMI kernels passed the default combined suite in
+PCSX2 as described above. The new `mmi` branch kernels and expanded tests
+require a fresh cross-build and PCSX2 run. Actual
 PS2 hardware, full JPEG-stream processing, and performance have **not yet
 been tested**. In addition to byte comparison, benchmark separately
 for low-entropy and high-entropy coefficient blocks: the IDCT MMI
