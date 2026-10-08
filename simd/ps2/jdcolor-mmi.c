@@ -42,8 +42,8 @@ clip_byte(int value)
 }
 
 /* Input is 16 halfwords: four pixels in their requested byte order.
- * PPACKB packs low 8 bytes from RT and high 8 bytes from RS.  P_MAX/MIN
- * are signed-halfword saturating bounds, not modulo-256 truncation.
+ * PPACB packs low 8 bytes from RT and high 8 bytes from RS.  P_MAX/MIN
+ * are signed-halfword clipping bounds, not modulo-256 truncation.
  * Dest may be unaligned, in which case a temporary aligned store is used.
  */
 static INLINE void
