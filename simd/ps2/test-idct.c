@@ -79,6 +79,25 @@ run_case(unsigned iteration, unsigned seed, int align_case)
     }
   }
   /*
+   * Target the even-part sqrt(2)*c(-6) rotator independently of the odd
+   * coefficient path.  Alternate positive/negative signs and include a
+   * DC+even variant to cover both IDCT passes and the zero-row shortcut.
+   * Products stay well inside the 32-bit IJG reference range.
+   */
+  if (iteration % 16 == 6 || iteration % 16 == 14) {
+    for (i = 0; i < 64; i++) {
+      coef[i] = 0;
+      quant[i] = 1;
+    }
+    coef[2] = (JCOEF)((iteration & 16U) ? -120 : 120);
+    coef[6] = (JCOEF)((iteration & 16U) ? 90 : -90);
+    quant[2] = 8;
+    quant[6] = 10;
+    if (iteration % 16 == 14)
+      coef[0] = (JCOEF)((iteration & 32U) ? -96 : 96);
+  }
+
+  /*
    * Additional signed-range stress: a single odd-frequency coefficient
    * with a larger quantization multiplier.  This exercises the guarded
    * middle-stage multiply path without generating arbitrarily large
