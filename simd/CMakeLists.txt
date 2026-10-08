@@ -502,6 +502,37 @@ endif()
 
 
 ###############################################################################
+# PlayStation 2 Emotion Engine (R5900, 128-bit MMI)
+###############################################################################
+
+elseif(CPU_TYPE STREQUAL "mips" AND PS2)
+
+set(SIMD_ARCHITECTURE PS2_EE PARENT_SCOPE)
+
+# The PS2SDK EE CMake toolchain sets CPU_TYPE=mips and PS2=TRUE.
+# Never route the R5900 into the unrelated Loongson MMI backend.
+check_c_source_compiles("
+  #if !defined(__PS2__)
+  #error \"The PS2 EE toolchain is required\"
+  #endif
+  int main(void) {
+    __asm__ volatile(\"pextlb $8, $8, $8\" : : : \"$8\");
+    return 0;
+  }" HAVE_PS2_MMI)
+
+if(NOT HAVE_PS2_MMI)
+  simd_fail("PS2 EE MMI compiler/assembler support is unavailable")
+  return()
+endif()
+
+add_library(simd OBJECT ps2/jsimdcpu.c ps2/jdsample-mmi.c jsimd.c)
+
+if(CMAKE_POSITION_INDEPENDENT_CODE OR ENABLE_SHARED)
+  set_target_properties(simd PROPERTIES POSITION_INDEPENDENT_CODE 1)
+endif()
+
+
+###############################################################################
 # MIPS64 (Intrinsics)
 ###############################################################################
 
