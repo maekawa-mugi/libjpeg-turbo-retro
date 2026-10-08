@@ -9,7 +9,6 @@
 
 #include "../jsimdint.h"
 #include <stdint.h>
-#include <string.h>
 
 /*
  * Expand 16 source bytes to 32 bytes by duplicating each source sample.
@@ -35,6 +34,30 @@ expand16_mmi(const JSAMPLE *src, JSAMPLE *dst)
     ".set pop\n\t"
     :
     : "r" (src), "r" (dst)
+    : "$8", "$9", "$10", "memory");
+}
+
+/*
+ * One horizontal expansion feeds two output rows for h2v2 sampling.
+ * Reuse the expanded MMI registers instead of reading the first row back
+ * via memcpy.  The caller guarantees 16-byte alignment for all pointers.
+ */
+static void
+expand16_pair_mmi(const JSAMPLE *src, JSAMPLE *dst0, JSAMPLE *dst1)
+{
+  __asm__ volatile(
+    ".set push\n\t"
+    ".set noreorder\n\t"
+    "lq $8, 0(%0)\n\t"
+    "pextlb $9, $8, $8\n\t"
+    "pextub $10, $8, $8\n\t"
+    "sq $9, 0(%1)\n\t"
+    "sq $10, 16(%1)\n\t"
+    "sq $9, 0(%2)\n\t"
+    "sq $10, 16(%2)\n\t"
+    ".set pop\n\t"
+    :
+    : "r" (src), "r" (dst0), "r" (dst1)
     : "$8", "$9", "$10", "memory");
 }
 
@@ -85,7 +108,25 @@ jsimd_h2v2_upsample_ps2mmi(int max_v_samp_factor, JDIMENSION output_width,
 
   for (inrow = outrow = 0; outrow + 1 < max_v_samp_factor;
        inrow++, outrow += 2) {
-    expand_row(output_width, input_data[inrow], output_data[outrow]);
-    memcpy(output_data[outrow + 1], output_data[outrow], output_width);
+    const JSAMPLE *src = input_data[inrow];
+    JSAMPLE *dst0 = output_data[outrow];
+    JSAMPLE *dst1 = output_data[outrow + 1];
+    JDIMENSION col = 0, src_col = 0;
+
+    if ((((uintptr_t)src | (uintptr_t)dst0 | (uintptr_t)dst1) & 15) == 0) {
+      for (; output_width - col >= 32; col += 32, src_col += 16)
+        expand16_pair_mmi(src + src_col, dst0 + col, dst1 + col);
+    }
+
+    /* For unaligned rows and the bounded tail, write both rows directly. */
+    for (; col < output_width; src_col++) {
+      JSAMPLE value = src[src_col];
+      dst0[col] = value;
+      dst1[col++] = value;
+      if (col < output_width) {
+        dst0[col] = value;
+        dst1[col++] = value;
+      }
+    }
   }
 }
