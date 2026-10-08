@@ -41,6 +41,7 @@ run_case(unsigned iteration, unsigned seed, int shifted)
   int i, row;
   JCOEFPTR coef = coef_storage + (shifted ? 1 : 0);
   unsigned output_col = shifted ? 7 : 0;
+  JCOEFPTR coef = coef_storage + shifted;
 
   memset(&cinfo, 0, sizeof(cinfo));
   memset(&component, 0, sizeof(component));
