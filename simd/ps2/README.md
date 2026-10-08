@@ -23,8 +23,12 @@ It is independent of `simd/mips64/`, which uses **Loongson's distinct
   products per iteration and `PCPYLD`/`PCPYUD` reorder the R5900
   accumulators into the original block order.  Each IDCT pass now uses
   four 32-bit MMI lanes for the final Loeffler butterflies and IJG
-  rounding (`PADDW`, `PSUBW`, `PSRAW`).  Middle stages retain the
-  reference fixed-point integer operations and 10-bit range wrapping.
+  rounding (`PADDW`, `PSUBW`, `PSRAW`).  The odd-part rotation stage
+  in each pass now also batches eight signed 16-bit multiplies with
+  `PMULTH` when all intermediate operands fit in a signed halfword;
+  values outside that range use the reference `MULTIPLY16C16` path.
+  The remaining middle stages retain the IJG fixed-point operations
+  and 10-bit range wrapping.
   An unaligned coefficient/quant table or non-16-bit quant type uses
   the scalar dequantizer.  This is a *partial-vector* transform, not
   a fully vectorized 8x8 IDCT.
@@ -74,7 +78,8 @@ different data patterns, boundaries, and deliberately unaligned rows).
 All tests check that output padding is untouched.  The downsampling
 test covers 136 cases (including right-edge padding and alternating
 rounding), and the IDCT test compares 2048 blocks (DC-only, sparse, dense,
-single-AC, and aligned/unaligned quant/coefficient tables) against the library's
+single-AC, signed odd-frequency stress, and aligned/unaligned
+quant/coefficient tables) against the library's
 reference integer IDCT.  The color test covers 420 image-row/layout
 cases, including all four-byte output layouts, three-byte scalar
 reference layouts, unaligned destinations, chroma extremes, and buffer
@@ -99,7 +104,10 @@ R5900 compilation, pixel equivalence, and PS2 execution have **not yet
 been tested**.  In addition to byte comparison, benchmark separately
 for low-entropy and high-entropy coefficient blocks: the IDCT MMI
 shortcut can speed DC-only blocks but requires a complete AC scan for
-other blocks.  The PMULTH and butterfly paths may have different speed
-tradeoffs due to stack-buffer traffic and reordering.  Keep `WITH_PS2_EXPERIMENTAL_IDCT=OFF` unless testing or
+other blocks.  The PMULTH odd-part rotations and butterfly paths may have different
+speed tradeoffs due to stack-buffer traffic and reordering.  The assembler
+probe also checks `PMULTH`, `PMFLO`/`PMFHI`, `PCPYLD`/`PCPYUD`,
+`PADDW`, `PSRAW`, and `PMAXH`.  Passing that probe verifies syntax
+support only; it does not verify runtime semantics or timing.  Keep `WITH_PS2_EXPERIMENTAL_IDCT=OFF` unless testing or
 benchmarking the IDCT path.  The toolchain check and the new assembly should be
 validated before treating this as a production optimization.
