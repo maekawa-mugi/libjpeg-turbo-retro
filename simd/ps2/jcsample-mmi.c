@@ -57,27 +57,33 @@ downsample16_h2(const JSAMPLE *in0, const JSAMPLE *in1, JSAMPLE *output)
     "lq $9, 16(%0)\n\t"
     "lq $10, 0(%1)\n\t"
     "lq $11, 16(%1)\n\t"
-    "paddh $8, $8, $10\n\t"
-    "paddh $9, $9, $11\n\t"
     "lq $12, 0(%3)\n\t"
-    "lq $13, 0(%4)\n\t"
-    "pand $10, $8, $12\n\t"
-    "pand $11, $9, $12\n\t"
+    "pand $13, $8, $12\n\t"
     "psrlh $8, $8, 8\n\t"
+    "paddh $13, $13, $8\n\t"
+    "pand $14, $10, $12\n\t"
+    "psrlh $10, $10, 8\n\t"
+    "paddh $13, $13, $14\n\t"
+    "paddh $13, $13, $10\n\t"
+    "pand $14, $9, $12\n\t"
     "psrlh $9, $9, 8\n\t"
-    "paddh $10, $10, $8\n\t"
-    "paddh $11, $11, $9\n\t"
-    "paddh $10, $10, $13\n\t"
-    "paddh $11, $11, $13\n\t"
-    "psrlh $10, $10, 2\n\t"
-    "psrlh $11, $11, 2\n\t"
-    "ppacb $10, $11, $10\n\t"
-    "sq $10, 0(%2)\n\t"
+    "paddh $14, $14, $9\n\t"
+    "pand $15, $11, $12\n\t"
+    "psrlh $11, $11, 8\n\t"
+    "paddh $14, $14, $15\n\t"
+    "paddh $14, $14, $11\n\t"
+    "lq $12, 0(%4)\n\t"
+    "paddh $13, $13, $12\n\t"
+    "paddh $14, $14, $12\n\t"
+    "psrlh $13, $13, 2\n\t"
+    "psrlh $14, $14, 2\n\t"
+    "ppacb $13, $14, $13\n\t"
+    "sq $13, 0(%2)\n\t"
     ".set pop\n\t"
     :
     : "r" (in0), "r" (in1), "r" (output),
       "r" (low_byte_mask), "r" (bias_h2)
-    : "$8", "$9", "$10", "$11", "$12", "$13", "memory");
+    : "$8", "$9", "$10", "$11", "$12", "$13", "$14", "$15", "memory");
 }
 
 /* The IJG scalar downsampler replicates the last input sample to the
