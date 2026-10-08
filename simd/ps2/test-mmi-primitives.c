@@ -54,7 +54,7 @@ mmi_multiply8(const int16_t *a, const int16_t *b, int32_t *out)
     "pmflo $11\n\t"
     "pmfhi $12\n\t"
     "pcpyld $13, $12, $11\n\t"
-    "pcpyud $14, $12, $11\n\t"
+    "pcpyud $14, $11, $12\n\t"
     "sq $13, 0(%2)\n\t"
     "sq $14, 16(%2)\n\t"
     ".set pop\n\t"
