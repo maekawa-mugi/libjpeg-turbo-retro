@@ -44,8 +44,15 @@ It is independent of `simd/mips64/`, which uses **Loongson's distinct
   halfword clipping and packing of four pixels.  This is an experimental
   *partial* SIMD converter, not yet a vectorized color matrix.
   Three-byte RGB and BGR continue to use the existing C converter.
+- Optional merged 4:2:2/4:2:0 upsampling plus YCbCr conversion for the
+  4-byte RGBX/BGRX/XBGR/XRGB families.  Reuse each chroma sample for two
+  horizontal (and optionally two vertical) luma pixels, avoiding separate
+  expanded chroma rows.  YCbCr matrix multiplication is still scalar;
+  four-pixel saturation and interleaved output packing use R5900 MMI.
+  Enable with `WITH_PS2_EXPERIMENTAL_MERGED=ON` (default OFF).
+  The 3-byte formats and RGB565 remain on the portable merged converter.
 - Remaining JPEG SIMD hooks use generic C, including
-  **MMI FDCT, ifast IDCT, and merged upsampling**.
+  **MMI FDCT and ifast IDCT**.
 - The backend is selected only with `WITH_SIMD=ON` for the PS2 EE
   toolchain.  Building with `WITH_SIMD=OFF` still uses generic C.
 - The IDCT dispatcher is **disabled by default** until performance and
@@ -79,13 +86,14 @@ from an existing checkout specified by `PS2SDK_SOURCE` (default:
 The copied SDK source, libraries, and startup object stay in
 `build-ps2-sdk/`; the compiler installation is not modified.
 
-Open `build-ps2/simd/ps2_mmi_test_suite.elf` in PCSX2 to run all six
-existing tests: MMI primitives, plain/fancy upsampling, downsampling,
-integer IDCT, and YCbCr color conversion. The runner uses PS2SDK's debug
-screen to display detailed failures and the final result:
+Open `build-ps2/simd/ps2_mmi_test_suite.elf` in PCSX2 to run all seven
+test groups: MMI primitives, plain/fancy upsampling, downsampling,
+integer IDCT, YCbCr color conversion, and merged upsampling/color conversion.
+The runner uses PS2SDK's debug screen to display failures and the new
+expected result:
 
 ```text
-TEST: OK! (6/6 groups passed)
+TEST: OK! (7/7 groups passed)
 ```
 
 A failed comparison instead produces `TEST: FAIL!`, with the failing
@@ -102,6 +110,15 @@ experimental even-rotation variant, rebuild with:
 PS2_IDCT_EVEN=ON bash simd/ps2/build-test-elf.sh
 ```
 
+To enable the new merged 4-byte output path in the static library as well,
+rebuild with:
+
+```sh
+PS2_MERGED=ON bash simd/ps2/build-test-elf.sh
+```
+
+The merged standalone test runs even when the option is OFF.
+
 On 2026-10-09, the default suite and the static JPEG library were
 successfully compiled and linked with EE GCC 15.1.0 and the existing
 PS2SDK source checkout. The ELF header has the R5900 architecture flag,
@@ -111,9 +128,11 @@ groups: 1024 primitive iterations, 48 plain upsampling cases, 128 fancy
 upsampling cases, 136 downsampling cases, 2048 IDCT reference comparisons,
 and 420 color conversion cases. This run used scalar even rotation;
 the experimental MMI even-rotation variant has not been verified.
-The subsequent h2v2 plain/fancy changes have **not** been rerun in PCSX2.
-The updated standalone suite now exercises 272 plain and 320 fancy cases;
-rebuilding and rerunning the ELF is required before claiming a new PASS.
+Subsequent h2v2 plain/fancy and merged converter changes have **not**
+been rerun in PCSX2.  The updated suite now exercises 272 plain,
+320 fancy, and 2176 merged reference cases; rebuild and rerun the ELF
+before claiming a new PASS.  The historical 6/6 result does not validate
+the new seventh group.
 
 ### Individual validation ELFs
 
@@ -132,7 +151,8 @@ to the configure command and run:
 cmake --build build-ps2 --target \
   ps2_mmi_upsample_test ps2_mmi_fancy_test \
   ps2_mmi_downsample_test ps2_mmi_idct_test \
-  ps2_mmi_color_test ps2_mmi_primitives_test
+  ps2_mmi_color_test ps2_mmi_primitives_test \
+  ps2_mmi_merged_test
 ```
 
 Run these ELFs on PS2 hardware or an emulator.  The
@@ -149,7 +169,11 @@ quant/coefficient tables) against the library's
 reference integer IDCT.  The color test covers 420 image-row/layout
 cases, including all four-byte output layouts, three-byte scalar
 reference layouts, unaligned destinations, chroma extremes, and buffer
-guard bytes.  The independent `ps2_mmi_primitives_test` checks 1024
+guard bytes.  The merged test covers 2176 cases across the four
+4-byte layouts, h2v1/h2v2 subsampling, odd widths, independent row
+alignments, and guard bytes.  It compares against IJG's 16.16
+fixed-point rounding and does not decode full JPEG files.
+The independent `ps2_mmi_primitives_test` checks 1024
 deterministic-random iterations of PEXTLB/PEXTUB byte expansion, all
 eight PMULTH 16x16 products and their original lane order, both
 11-/18-bit LL&M butterfly rounding shifts, and PMAXH/PMINH/PPACB
