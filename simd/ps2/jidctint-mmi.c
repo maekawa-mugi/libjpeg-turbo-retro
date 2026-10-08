@@ -36,7 +36,6 @@
 #define FIX_3_072711026  ((JLONG)25172)         /* FIX(3.072711026) */
 
 #define MULTIPLY(var, constant) MULTIPLY16C16(var, constant)
-#define DEQUANTIZE(coef, quantval) (((ISLOW_MULT_TYPE)(coef)) * (quantval))
 
 /*
  * IJG's post-IDCT range-limit table maps 0..1023 as follows:
@@ -174,6 +173,58 @@ ps2_butterfly_pass2(const JLONG a[4], const JLONG b[4],
     : "$8", "$9", "$10", "$11", "$12", "memory");
 }
 
+
+/*
+ * Eight simultaneous 16x16 -> 32-bit dequantization products.
+ * PMULTH writes the low/high accumulators in the PS2-specific lane order:
+ *   LO: {0,1,4,5}, HI: {2,3,6,7}.
+ * PCPYLD/PCPYUD put the products back into natural 0..7 order.
+ *
+ * Keep this in a separate non-inlined function so the R5900 HI/LO
+ * accumulators are not live across other compiler-generated arithmetic.
+ * The caller guarantees 16-byte alignment and a 16-bit quant table.
+ */
+static __attribute__((noinline)) void
+ps2_dequant8_mmi(const JCOEF *coef, const ISLOW_MULT_TYPE *quant, JLONG *dest)
+{
+  __asm__ volatile(
+    ".set push\n\t"
+    ".set noreorder\n\t"
+    "lq $8, 0(%0)\n\t"
+    "lq $9, 0(%1)\n\t"
+    "pmulth $10, $8, $9\n\t"
+    "pmflo $11\n\t"
+    "pmfhi $12\n\t"
+    "pcpyld $13, $12, $11\n\t"
+    "pcpyud $14, $12, $11\n\t"
+    "sq $13, 0(%2)\n\t"
+    "sq $14, 16(%2)\n\t"
+    ".set pop\n\t"
+    :
+    : "r" (coef), "r" (quant), "r" (dest)
+    : "$8", "$9", "$10", "$11", "$12", "$13", "$14", "memory");
+}
+
+/* Full block dequantization.  The MMI path is restricted to an aligned,
+ * native short multiplier table, matching the 8-bit WITH_SIMD build.
+ * An unaligned coefficient buffer or a non-short quant table falls
+ * back to reference C multiplication.
+ */
+static void
+ps2_dequant_block(const JCOEF *coef, const ISLOW_MULT_TYPE *quant,
+                  JLONG products[DCTSIZE2])
+{
+  int i;
+  if (sizeof(ISLOW_MULT_TYPE) == 2 &&
+      (((uintptr_t)coef | (uintptr_t)quant | (uintptr_t)products) & 15) == 0) {
+    for (i = 0; i < DCTSIZE2; i += 8)
+      ps2_dequant8_mmi(coef + i, quant + i, products + i);
+  } else {
+    for (i = 0; i < DCTSIZE2; i++)
+      products[i] = (JLONG)((ISLOW_MULT_TYPE)coef[i]) * quant[i];
+  }
+}
+
 /*
  * IJG reference LL&M transform (unaltered fixed-point constants, shifts,
  * and 8-bit limiting, except for the MMI DC-only early exit).
@@ -187,7 +238,7 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
   JLONG tmp10, tmp11, tmp12, tmp13;
   JLONG z1, z2, z3, z4, z5;
   JCOEFPTR inptr;
-  ISLOW_MULT_TYPE *quantptr;
+  JLONG dequant[DCTSIZE2] __attribute__((aligned(16)));
   int *wsptr;
   JSAMPROW outptr;
   /* Range mapping below is the exact IJG post-IDCT 10-bit wrap table. */
@@ -217,7 +268,7 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
   /* furthermore, we scale the results by 2**PASS1_BITS. */
 
   inptr = coef_block;
-  quantptr = (ISLOW_MULT_TYPE *)dct_table;
+  ps2_dequant_block(coef_block, (ISLOW_MULT_TYPE *)dct_table, dequant);
   wsptr = workspace;
   for (ctr = DCTSIZE; ctr > 0; ctr--) {
     /* Due to quantization, we will usually find that many of the input
@@ -234,8 +285,7 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
         inptr[DCTSIZE * 5] == 0 && inptr[DCTSIZE * 6] == 0 &&
         inptr[DCTSIZE * 7] == 0) {
       /* AC terms all zero */
-      int dcval = LEFT_SHIFT(DEQUANTIZE(inptr[DCTSIZE * 0],
-                             quantptr[DCTSIZE * 0]), PASS1_BITS);
+      int dcval = LEFT_SHIFT(dequant[DCTSIZE * 0 + (int)(inptr - coef_block)], PASS1_BITS);
 
       wsptr[DCTSIZE * 0] = dcval;
       wsptr[DCTSIZE * 1] = dcval;
@@ -247,23 +297,22 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
       wsptr[DCTSIZE * 7] = dcval;
 
       inptr++;                  /* advance pointers to next column */
-      quantptr++;
-      wsptr++;
+        wsptr++;
       continue;
     }
 
     /* Even part: reverse the even part of the forward DCT. */
     /* The rotator is sqrt(2)*c(-6). */
 
-    z2 = DEQUANTIZE(inptr[DCTSIZE * 2], quantptr[DCTSIZE * 2]);
-    z3 = DEQUANTIZE(inptr[DCTSIZE * 6], quantptr[DCTSIZE * 6]);
+    z2 = dequant[DCTSIZE * 2 + (int)(inptr - coef_block)];
+    z3 = dequant[DCTSIZE * 6 + (int)(inptr - coef_block)];
 
     z1 = MULTIPLY(z2 + z3, FIX_0_541196100);
     tmp2 = z1 + MULTIPLY(z3, -FIX_1_847759065);
     tmp3 = z1 + MULTIPLY(z2, FIX_0_765366865);
 
-    z2 = DEQUANTIZE(inptr[DCTSIZE * 0], quantptr[DCTSIZE * 0]);
-    z3 = DEQUANTIZE(inptr[DCTSIZE * 4], quantptr[DCTSIZE * 4]);
+    z2 = dequant[DCTSIZE * 0 + (int)(inptr - coef_block)];
+    z3 = dequant[DCTSIZE * 4 + (int)(inptr - coef_block)];
 
     tmp0 = LEFT_SHIFT(z2 + z3, CONST_BITS);
     tmp1 = LEFT_SHIFT(z2 - z3, CONST_BITS);
@@ -277,10 +326,10 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
      * transpose is its inverse.  i0..i3 are y7,y5,y3,y1 respectively.
      */
 
-    tmp0 = DEQUANTIZE(inptr[DCTSIZE * 7], quantptr[DCTSIZE * 7]);
-    tmp1 = DEQUANTIZE(inptr[DCTSIZE * 5], quantptr[DCTSIZE * 5]);
-    tmp2 = DEQUANTIZE(inptr[DCTSIZE * 3], quantptr[DCTSIZE * 3]);
-    tmp3 = DEQUANTIZE(inptr[DCTSIZE * 1], quantptr[DCTSIZE * 1]);
+    tmp0 = dequant[DCTSIZE * 7 + (int)(inptr - coef_block)];
+    tmp1 = dequant[DCTSIZE * 5 + (int)(inptr - coef_block)];
+    tmp2 = dequant[DCTSIZE * 3 + (int)(inptr - coef_block)];
+    tmp3 = dequant[DCTSIZE * 1 + (int)(inptr - coef_block)];
 
     z1 = tmp0 + tmp3;
     z2 = tmp1 + tmp2;
@@ -324,7 +373,6 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
     }
 
     inptr++;                    /* advance pointers to next column */
-    quantptr++;
     wsptr++;
   }
 
