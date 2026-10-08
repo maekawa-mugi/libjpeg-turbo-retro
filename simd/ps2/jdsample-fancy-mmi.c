@@ -175,10 +175,10 @@ jsimd_h2v1_fancy_upsample_ps2mmi(int max_v_samp_factor,
   }
 }
 
-/* Two-dimensional fancy filter.  The vertical 3:1 filtering is done by
- * eight-wide MMI, followed by scalar horizontal filtering with the exact
- * IJG biases.  Near/far context rows are guaranteed by the JPEG upsampler
- * when fancy h2v2 mode is selected.
+/* Two-dimensional fancy filter.  Interior pixels use a fused
+ * vertical/horizontal 3:1 filter and exact IJG rounding in eight MMI lanes.
+ * The first and last samples, plus rows without aligned destinations, use
+ * scalar C.  Near/far context rows are provided by the JPEG upsampler.
  */
 HIDDEN void
 jsimd_h2v2_fancy_upsample_ps2mmi(int max_v_samp_factor,
