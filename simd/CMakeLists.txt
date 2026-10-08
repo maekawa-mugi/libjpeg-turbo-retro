@@ -590,10 +590,12 @@ if(WITH_PS2_MMI_TESTS)
   add_executable(ps2_mmi_primitives_test ps2/test-mmi-primitives.c)
   add_executable(ps2_mmi_color_test ps2/test-color.c)
   target_link_libraries(ps2_mmi_color_test jpeg-static)
+  add_executable(ps2_mmi_merged_test ps2/test-merged.c)
+  target_link_libraries(ps2_mmi_merged_test jpeg-static)
 
   # Reuse the tests unchanged, giving each translation unit a unique entry.
   set(PS2_TEST_OBJECTS)
-  foreach(test primitives upsample fancy downsample idct color)
+  foreach(test primitives upsample fancy downsample idct color merged)
     if(test STREQUAL "primitives")
       set(test_source ps2/test-mmi-primitives.c)
     else()
