@@ -108,7 +108,7 @@ jsimd_h2v1_fancy_upsample_ps2mmi(int max_v_samp_factor,
         dst[2 * i] = (JSAMPLE)((3 * x + left + 1) >> 2);
         dst[2 * i + 1] = (JSAMPLE)((3 * x + right + 2) >> 2);
       }
-      for (; i + 8 < width; i += 8)
+      for (; width - i > 8; i += 8)
         fancy8_mmi(src + i, dst + 2 * i);
     }
 
