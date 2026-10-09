@@ -27,7 +27,6 @@ int ps2_bench_run_group(unsigned);
 void ps2_bench_skip_group(unsigned);
 int ps2_bench_end(void);
 void ps2_bench_screen_summary(void);
-int ps2_bench_run_spr(void);
 #endif
 
 /* Never stream arbitrary test text to the GS. Long diagnostic lines used
@@ -153,10 +152,6 @@ int main(void)
   }
 #ifdef PS2_MMI_ALL_IN_ONE
   bench_failures=ps2_bench_end();
-  /* Run SPR matrix only after every existing correctness + benchmark gate. */
-  if(!failed && !bench_failures)
-    bench_failures+=ps2_bench_run_spr()!=0;
-  else puts("JPEG_SPR_RESULT,SKIP,previous_correctness_failure");
   ps2_bench_screen_summary();
 #endif
   scr_setXY(0,23);

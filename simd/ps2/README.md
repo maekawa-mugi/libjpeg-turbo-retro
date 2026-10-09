@@ -1,19 +1,5 @@
 # PlayStation 2 Emotion Engine SIMD backend
 
-## All-in-one PS2 scratchpad sampling matrix
-
-libjpeg_turbo_mmi.elf now runs six real MMI sampling kernels after
-all existing regression suites and A/B benchmarks pass:
-plain/fancy upsampling and downsampling, each h2v1/h2v2.
-Widths 64/128/256/512 and five memory placements are exercised:
-RAM, SPR input, SPR output, both in SPR and transfer-inclusive.
-Each combination has output-equivalence checks against RAM-only MMI,
-six alternating samples and machine-readable JPEG_SPR records.
-This measures placement and optional transfer overhead, not
-the full end-to-end JPEG decode/encode benefit. No DMA or
-production SIMD dispatch change. SPR is exclusive to the running ELF.
-
-
 This directory contains the PS2 EE (R5900) **128-bit MMI** backend.
 It is independent of `simd/mips64/`, which uses **Loongson's distinct
 64-bit MMI instruction set**.  VU0/VU1 are not enabled by this backend.
