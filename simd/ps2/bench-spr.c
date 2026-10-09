@@ -152,7 +152,7 @@ int ps2_bench_run_spr(void)
       }
   scr_setXY(0,14);
   scr_setfontcolor(0x00ffffff);
-  scr_printf("SPR both/RAM @256 P:%4.2fx F:%4.2fx D:%4.2fx   ",
+  scr_printf("RAM/SPR both @256 P:%4.2fx F:%4.2fx D:%4.2fx   ",
              summary[0],summary[1],summary[2]);
   printf("JPEG_SPR_RESULT,PASS,cases=%u,sink=%lu\n",
          cases,(unsigned long)escape);
