@@ -25,6 +25,7 @@ static struct {
 } timings[MAX_TIMINGS];
 static unsigned timing_count;
 static int total_bench_failures;
+static unsigned passed_groups;
 
 static void
 screen_best(unsigned row, const char *category, const char *workload,
@@ -33,6 +34,14 @@ screen_best(unsigned row, const char *category, const char *workload,
   unsigned i;
   uint64_t base = ~(uint64_t)0, best = ~(uint64_t)0;
   const char *winner = "none";
+  /* A partially failed or skipped family must never publish a winner. */
+  static const unsigned family_of_row[7] = {4,3,1,1,1,2,0};
+  if (row >= 7 || !(passed_groups & (1u << family_of_row[row]))) {
+    ps2_test_printf("BENCH %-11s %-8s n/a (correctness gate)\n",
+                    category,workload);
+    if (row < 7) ps2_ui_bench_result(row,category,"N/A",0,0);
+    return;
+  }
   for (i = 0; i < timing_count; i++) {
     uint64_t cost;
     if (strcmp(timings[i].category, category) ||
@@ -108,6 +117,7 @@ void ps2_bench_begin(void)
 {
   timing_count=0;
   total_bench_failures=0;
+  passed_groups=0;
   puts("BENCH_START,R5900,PS2SDK_TIMER,warm24,rotating_order,median");
   puts("CSV_HEADER,category,variant,workload,width,alignment,ticks,repeats,ticks_per_call_rounded");
   fflush(stdout);
@@ -126,7 +136,8 @@ int ps2_bench_run_group(unsigned group)
   default: rc=ps2_bench_run_merged(); break;
   }
   total_bench_failures+=rc!=0;
-  /* Publish the winners as soon as their family has completed. */
+  if(!rc)passed_groups|=1u<<group;
+  /* Publish the winners only when every family check succeeds. */
   switch(group){
   case 0: screen_best(6,"quantize","dense",64,0,"ijg_c"); break;
   case 1:
