@@ -1,0 +1,42 @@
+name: PS2 EE MMI host preflight
+
+on:
+  push:
+    paths:
+      - "simd/ps2/**"
+      - ".github/workflows/ps2-ee-host-checks.yml"
+  pull_request:
+    paths:
+      - "simd/ps2/**"
+      - ".github/workflows/ps2-ee-host-checks.yml"
+
+jobs:
+  portable-math:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile/run portable arithmetic regression tests
+        env:
+          CC: ${{ matrix.compiler }}
+        run: |
+          set -eu
+          for stem in color-math add-pack vector-offsets quantize; do
+            "$CC" -O1 -g -std=c99 -Wall -Wextra -Werror \
+              -fsanitize=address,undefined -fno-omit-frame-pointer \
+              "simd/ps2/test-${stem}-host.c" -o "/tmp/ps2-test-${stem}"
+            "/tmp/ps2-test-${stem}"
+          done
+      - name: Compile full A/B harness against native SDK stubs
+        env:
+          CC: ${{ matrix.compiler }}
+        run: |
+          set -eu
+          bash simd/ps2/verify-bench-host.sh
+      - name: Check complete and deliberately corrupted A/B transcripts
+        run: |
+          set -eu
+          python3 simd/ps2/test_analyze_bench.py

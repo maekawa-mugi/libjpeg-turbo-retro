@@ -5,9 +5,10 @@
  * and rounding.  RGBX/BGRX/XBGR/XRGB variants use 128-bit MMI signed
  * halfword saturation and byte packing for four pixels per iteration.
  *
- * The color products remain 32-bit scalar until a full-vector
- * multiplication kernel is validated.  This is an experimental partial
- * vector backend, not a claim of an optimized full SIMD color matrix.
+ * Scalar color products are the reference path.  The optional four-pixel
+ * PMULTH kernel vectorizes the coefficient products while retaining the
+ * IJG rounding and scalar channel reconstruction.  Its performance is
+ * unmeasured and it must be enabled explicitly.
  *
  * SPDX-License-Identifier: Zlib
  */
@@ -30,6 +31,161 @@ convert_pixel(int y, int cb, int cr, short *r, short *g, short *b)
   *g = (short)(y + ((-22554 * cb - 46802 * cr + 32768) >> 16));
   *b = (short)(y + ((116130 * cb + 32768) >> 16));
 }
+
+
+/*
+ * Optional four-pixel matrix: two PMULTH instructions calculate sixteen
+ * signed 16x16 products for four independent Cb/Cr pairs.  Each group of
+ * four lanes holds R, B, G(Cb), G(Cr) fractional products for one pixel.
+ *
+ * 91881 = 65536 + 26345, -46802 = -65536 + 18734,
+ * 116130 = 2*65536 - 14942.  Reconstruct *before* the single >> 16
+ * rounding shift; separately rounding G(Cb) and G(Cr) changes output.
+ *
+ * PMULTH writes lanes 0,1,4,5 to LO and 2,3,6,7 to HI.
+ * PCPYLD(HI,LO) and PCPYUD(LO,HI) restore the original lane order.
+ * These operands were validated in the standalone PS2 primitive test.
+ */
+#if defined(PS2_EXPERIMENTAL_COLOR_PMULTH)
+static const short color_coeff_mmi[8] __attribute__((aligned(16))) = {
+  26345, -14942, -22554, 18734,
+  26345, -14942, -22554, 18734
+};
+
+static INLINE void
+convert4_mmi(const JSAMPLE *yp, const JSAMPLE *cbp, const JSAMPLE *crp,
+             short lanes[16], int red, int green, int blue, int alpha)
+{
+  short inputs[16] __attribute__((aligned(16)));
+  int32_t products[16] __attribute__((aligned(16)));
+  int k;
+
+  for (k = 0; k < 4; ++k) {
+    short cb = (short)((int)cbp[k] - 128);
+    short cr = (short)((int)crp[k] - 128);
+    inputs[4 * k] = cr;
+    inputs[4 * k + 1] = cb;
+    inputs[4 * k + 2] = cb;
+    inputs[4 * k + 3] = cr;
+  }
+
+  __asm__ volatile(
+    ".set push\n\t"
+    ".set noreorder\n\t"
+    "lq $8, 0(%0)\n\t"
+    "lq $9, 0(%1)\n\t"
+    "pmulth $10, $8, $9\n\t"
+    "pmflo $11\n\t"
+    "pmfhi $12\n\t"
+    "pcpyld $13, $12, $11\n\t"
+    "pcpyud $14, $11, $12\n\t"
+    "sq $13, 0(%2)\n\t"
+    "sq $14, 16(%2)\n\t"
+    "lq $8, 16(%0)\n\t"
+    "pmulth $10, $8, $9\n\t"
+    "pmflo $11\n\t"
+    "pmfhi $12\n\t"
+    "pcpyld $13, $12, $11\n\t"
+    "pcpyud $14, $11, $12\n\t"
+    "sq $13, 32(%2)\n\t"
+    "sq $14, 48(%2)\n\t"
+    ".set pop\n\t"
+    :
+    : "r" (inputs), "r" (color_coeff_mmi), "r" (products)
+    : "$8", "$9", "$10", "$11", "$12", "$13", "$14", "memory");
+
+  for (k = 0; k < 4; ++k) {
+    int cb = (int)cbp[k] - 128;
+    int cr = (int)crp[k] - 128;
+    int r = cr + ((products[4 * k] + 32768) >> 16);
+    int g = -cr + ((products[4 * k + 2] + products[4 * k + 3] +
+                    32768) >> 16);
+    int b = 2 * cb + ((products[4 * k + 1] + 32768) >> 16);
+    lanes[4 * k + red] = (short)((int)yp[k] + r);
+    lanes[4 * k + green] = (short)((int)yp[k] + g);
+    lanes[4 * k + blue] = (short)((int)yp[k] + b);
+    lanes[4 * k + alpha] = 255;
+  }
+}
+#endif
+
+
+#if defined(PS2_EXPERIMENTAL_COLOR_PMULTH8) && \
+    defined(PS2_EXPERIMENTAL_COLOR_PMULTH)
+/* Four PMULTH groups over eight independent samples, but only one
+ * coefficient LQ.  Compare on R5900: the larger input/product stack
+ * arrays may be slower than two calls to the four-pixel kernel.
+ */
+static INLINE void
+convert8_mmi(const JSAMPLE *yp, const JSAMPLE *cbp, const JSAMPLE *crp,
+             short lanes[2][16], int red, int green, int blue, int alpha)
+{
+  short inputs[32] __attribute__((aligned(16)));
+  int32_t products[32] __attribute__((aligned(16)));
+  int k;
+  for (k = 0; k < 8; k++) {
+    short cb = (short)((int)cbp[k] - 128);
+    short cr = (short)((int)crp[k] - 128);
+    inputs[4 * k] = cr;
+    inputs[4 * k + 1] = cb;
+    inputs[4 * k + 2] = cb;
+    inputs[4 * k + 3] = cr;
+  }
+  __asm__ volatile(
+    ".set push\n\t"
+    ".set noreorder\n\t"
+    "lq $9, 0(%1)\n\t"
+    "lq $8, 0(%0)\n\t"
+    "pmulth $10, $8, $9\n\t"
+    "pmflo $11\n\t"
+    "pmfhi $12\n\t"
+    "pcpyld $13, $12, $11\n\t"
+    "pcpyud $14, $11, $12\n\t"
+    "sq $13, 0(%2)\n\t"
+    "sq $14, 16(%2)\n\t"
+    "lq $8, 16(%0)\n\t"
+    "pmulth $10, $8, $9\n\t"
+    "pmflo $11\n\t"
+    "pmfhi $12\n\t"
+    "pcpyld $13, $12, $11\n\t"
+    "pcpyud $14, $11, $12\n\t"
+    "sq $13, 32(%2)\n\t"
+    "sq $14, 48(%2)\n\t"
+    "lq $8, 32(%0)\n\t"
+    "pmulth $10, $8, $9\n\t"
+    "pmflo $11\n\t"
+    "pmfhi $12\n\t"
+    "pcpyld $13, $12, $11\n\t"
+    "pcpyud $14, $11, $12\n\t"
+    "sq $13, 64(%2)\n\t"
+    "sq $14, 80(%2)\n\t"
+    "lq $8, 48(%0)\n\t"
+    "pmulth $10, $8, $9\n\t"
+    "pmflo $11\n\t"
+    "pmfhi $12\n\t"
+    "pcpyld $13, $12, $11\n\t"
+    "pcpyud $14, $11, $12\n\t"
+    "sq $13, 96(%2)\n\t"
+    "sq $14, 112(%2)\n\t"
+    ".set pop\n\t"
+    :
+    : "r" (inputs), "r" (color_coeff_mmi), "r" (products)
+    : "$8", "$9", "$10", "$11", "$12", "$13", "$14", "memory");
+  for (k = 0; k < 8; k++) {
+    int cb = (int)cbp[k] - 128;
+    int cr = (int)crp[k] - 128;
+    int r = cr + ((products[4 * k] + 32768) >> 16);
+    int g = -cr +
+            ((products[4 * k + 2] + products[4 * k + 3] + 32768) >> 16);
+    int b = 2 * cb + ((products[4 * k + 1] + 32768) >> 16);
+    short *out = lanes[k / 4] + 4 * (k % 4);
+    out[red] = (short)((int)yp[k] + r);
+    out[green] = (short)((int)yp[k] + g);
+    out[blue] = (short)((int)yp[k] + b);
+    out[alpha] = 255;
+  }
+}
+#endif
 
 static INLINE JSAMPLE
 clip_byte(int value)
@@ -87,8 +243,22 @@ convert_rows(JDIMENSION width, JSAMPIMAGE input_buf, JDIMENSION input_row,
     JDIMENSION col = 0;
 
     if (pixel_size == 4) {
+#if defined(PS2_EXPERIMENTAL_COLOR_PMULTH8) && \
+    defined(PS2_EXPERIMENTAL_COLOR_PMULTH)
+      for (; width - col >= 8; col += 8) {
+        short lanes[2][16] __attribute__((aligned(16)));
+        convert8_mmi(yp + col, cbp + col, crp + col, lanes,
+                     red, green, blue, alpha);
+        pack4_mmi(lanes[0], dst + col * 4);
+        pack4_mmi(lanes[1], dst + (col + 4) * 4);
+      }
+#endif
       for (; width - col >= 4; col += 4) {
         short lanes[16] __attribute__((aligned(16)));
+#if defined(PS2_EXPERIMENTAL_COLOR_PMULTH)
+        convert4_mmi(yp + col, cbp + col, crp + col,
+                     lanes, red, green, blue, alpha);
+#else
         int k;
         for (k = 0; k < 4; k++) {
           short r, g, b;
@@ -99,6 +269,7 @@ convert_rows(JDIMENSION width, JSAMPIMAGE input_buf, JDIMENSION input_row,
           lanes[4 * k + blue] = b;
           lanes[4 * k + alpha] = 255;
         }
+#endif
         pack4_mmi(lanes, dst + col * 4);
       }
     }

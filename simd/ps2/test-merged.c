@@ -14,8 +14,9 @@
 #include <string.h>
 
 #define WIDTH 65
-#define SRC_BYTES 128
-#define DST_BYTES (4 * WIDTH + 32)
+/* Keep room for the alignment prefix, row payload, and guard bytes. */
+#define SRC_BYTES 160
+#define DST_BYTES (4 * WIDTH + 64)
 #define GROUP 1
 
 typedef void (*merged_fn)(JDIMENSION, JSAMPIMAGE, JDIMENSION, JSAMPARRAY);
@@ -85,8 +86,10 @@ run_case(const layout *l, unsigned width, int vertical,
   for (plane = 0; plane < 3; plane++) {
     source_image[plane] = source_rows[plane];
     for (row = 0; row < 4; row++) {
-      source_rows[plane][row] = sample_ptr(source_mem[plane][row], src_offset);
-      for (col = 0; col < SRC_BYTES - 16; col++) {
+      source_rows[plane][row] =
+        sample_ptr(source_mem[plane][row],
+                   (src_offset + 5 * plane + 3 * row) & 15U);
+      for (col = 0; col < SRC_BYTES - 32; col++) {
         unsigned v = (phase * 67 + plane * 71 + row * 29 +
                       col * (plane * 17 + row * 3 + 43)) & 255;
         /* Include neutral Cb/Cr, pure black, and pure white. */
@@ -94,6 +97,12 @@ run_case(const layout *l, unsigned width, int vertical,
           v = plane == 0 ? 0 : 128;
         if (col % 13 == 0)
           v = 255;
+        if (phase == 2)
+          v = plane == 0 ? ((col + row) & 1U ? 255 : 0) :
+              plane == 1 ? ((col + row) & 1U ? 0 : 255) :
+                           ((col + row) & 1U ? 255 : 0);
+        else if (phase == 3 && plane > 0)
+          v = col % 3 == 0 ? 128 : ((col + plane) & 1U ? 255 : 0);
         source_rows[plane][row][col] = (JSAMPLE)v;
       }
     }
@@ -147,19 +156,23 @@ run_case(const layout *l, unsigned width, int vertical,
 
 int main(void)
 {
-  static const unsigned widths[] =
-    { 1, 2, 3, 4, 5, 7, 8, 9, 15, 16, 17, 31, 32, 33, 63, 64, 65 };
+  static const unsigned widths[] = {
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 16,
+    17, 18, 23, 24, 25, 31, 32, 33, 39, 40, 41, 63, 64, 65
+  };
+  static const unsigned offsets[] = { 0, 1, 7, 15 };
   unsigned li, wi, src_offset, dst_pattern, phase, count = 0;
   int vertical;
 
   for (li = 0; li < sizeof(layouts) / sizeof(layouts[0]); li++)
     for (vertical = 1; vertical <= 2; vertical++)
-      for (src_offset = 0; src_offset <= 1; src_offset++)
+      for (src_offset = 0;
+           src_offset < sizeof(offsets) / sizeof(offsets[0]); src_offset++)
         for (dst_pattern = 0; dst_pattern < 4; dst_pattern++)
-          for (phase = 0; phase <= 1; phase++)
+          for (phase = 0; phase < 4; phase++)
             for (wi = 0; wi < sizeof(widths) / sizeof(widths[0]); wi++) {
-              if (run_case(&layouts[li], widths[wi], vertical, src_offset,
-                           dst_pattern, phase))
+              if (run_case(&layouts[li], widths[wi], vertical,
+                           offsets[src_offset], dst_pattern, phase))
                 return 1;
               count++;
             }

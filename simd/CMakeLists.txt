@@ -545,8 +545,69 @@ option(WITH_PS2_EXPERIMENTAL_MERGED
 option(WITH_PS2_EXPERIMENTAL_MERGED_PMULTH
   "Use experimental 8-lane PMULTH for the PS2 merged YCbCr color matrix" OFF)
 
+option(WITH_PS2_EXPERIMENTAL_MERGED_PMULTH8
+  "Batch eight merged YCbCr pixels with two PMULTH operations and one coefficient load" OFF)
+
+option(WITH_PS2_EXPERIMENTAL_MERGED_ADD_PACK
+  "Use PEXT/PADDH to combine luma and chroma before final RGBX packing" OFF)
+
+option(WITH_PS2_EXPERIMENTAL_MERGED_VECTOR_OFFSETS
+  "Use PMADDH/PADDW/PSRAW/PPACH to reconstruct 4 chroma offsets within MMI" OFF)
+
+if(WITH_PS2_EXPERIMENTAL_MERGED_PMULTH8 AND
+   NOT WITH_PS2_EXPERIMENTAL_MERGED_PMULTH)
+  message(FATAL_ERROR
+    "WITH_PS2_EXPERIMENTAL_MERGED_PMULTH8 requires WITH_PS2_EXPERIMENTAL_MERGED_PMULTH=ON")
+endif()
+
+if(WITH_PS2_EXPERIMENTAL_MERGED_ADD_PACK AND
+   NOT WITH_PS2_EXPERIMENTAL_MERGED_PMULTH8)
+  message(FATAL_ERROR
+    "WITH_PS2_EXPERIMENTAL_MERGED_ADD_PACK requires WITH_PS2_EXPERIMENTAL_MERGED_PMULTH8=ON")
+endif()
+
+if(WITH_PS2_EXPERIMENTAL_MERGED_VECTOR_OFFSETS AND
+   NOT WITH_PS2_EXPERIMENTAL_MERGED_ADD_PACK)
+  message(FATAL_ERROR
+    "WITH_PS2_EXPERIMENTAL_MERGED_VECTOR_OFFSETS requires WITH_PS2_EXPERIMENTAL_MERGED_ADD_PACK=ON")
+endif()
+
+# Probe these additional MMI instructions only when the new experiment is
+# selected.  Ordinary PS2 MMI builds should not acquire new ISA requirements.
+if(WITH_PS2_EXPERIMENTAL_MERGED_VECTOR_OFFSETS)
+  check_c_source_compiles("
+    int main(void) {
+      __asm__ volatile(
+        \"pmulth $10, $8, $9;\"
+        \"pmaddh $10, $8, $9;\"
+        \"paddw $11, $10, $9;\"
+        \"psraw $11, $11, 16;\"
+        \"ppach $12, $11, $10\"
+        : : : \"$8\", \"$9\", \"$10\", \"$11\", \"$12\");
+      return 0;
+    }" HAVE_PS2_MMI_VECTOR_OFFSETS)
+  if(NOT HAVE_PS2_MMI_VECTOR_OFFSETS)
+    message(FATAL_ERROR
+      "PS2 EE assembler does not support PMADDH/PADDW/PSRAW/PPACH")
+  endif()
+endif()
+
 option(WITH_PS2_EXPERIMENTAL_COLOR
   "Enable experimental PS2 MMI 4-byte YCbCr to RGB conversion" OFF)
+
+option(WITH_PS2_EXPERIMENTAL_COLOR_PMULTH
+  "Use four-pixel PMULTH chroma products in experimental PS2 YCbCr conversion" OFF)
+
+option(WITH_PS2_EXPERIMENTAL_COLOR_PMULTH8
+  "Batch eight YCbCr pixels with four PMULTH and one coefficient load" OFF)
+if(WITH_PS2_EXPERIMENTAL_COLOR_PMULTH8 AND
+   NOT WITH_PS2_EXPERIMENTAL_COLOR_PMULTH)
+  message(FATAL_ERROR
+    "WITH_PS2_EXPERIMENTAL_COLOR_PMULTH8 requires WITH_PS2_EXPERIMENTAL_COLOR_PMULTH=ON")
+endif()
+
+option(WITH_PS2_EXPERIMENTAL_QUANTIZE
+  "Enable experimental PS2 eight-lane integer reciprocal quantization" OFF)
 
 option(WITH_PS2_EXPERIMENTAL_IDCT
   "Enable experimental PS2 MMI dequantization, odd multiplications, and IDCT butterflies"
@@ -558,10 +619,15 @@ option(WITH_PS2_EXPERIMENTAL_IDCT_EVEN
 
 add_library(simd OBJECT ps2/jsimdcpu.c ps2/jdsample-mmi.c
   ps2/jdsample-fancy-mmi.c ps2/jcsample-mmi.c
-  ps2/jidctint-mmi.c ps2/jdcolor-mmi.c ps2/jdmerge-mmi.c jsimd.c)
+  ps2/jidctint-mmi.c ps2/jdcolor-mmi.c ps2/jdmerge-mmi.c
+  ps2/jquanti-mmi.c jsimd.c)
 
 if(WITH_PS2_EXPERIMENTAL_IDCT)
   target_compile_definitions(simd PRIVATE PS2_EXPERIMENTAL_IDCT=1)
+endif()
+
+if(WITH_PS2_EXPERIMENTAL_QUANTIZE)
+  target_compile_definitions(simd PRIVATE PS2_EXPERIMENTAL_QUANTIZE=1)
 endif()
 
 if(WITH_PS2_EXPERIMENTAL_IDCT_EVEN)
@@ -572,6 +638,16 @@ if(WITH_PS2_EXPERIMENTAL_COLOR)
   target_compile_definitions(simd PRIVATE PS2_EXPERIMENTAL_COLOR=1)
 endif()
 
+# Standalone PS2 color tests call the implementation even when its normal
+# dispatcher is disabled; this controls the implementation, not dispatch.
+if(WITH_PS2_EXPERIMENTAL_COLOR_PMULTH)
+  target_compile_definitions(simd PRIVATE PS2_EXPERIMENTAL_COLOR_PMULTH=1)
+endif()
+
+if(WITH_PS2_EXPERIMENTAL_COLOR_PMULTH8)
+  target_compile_definitions(simd PRIVATE PS2_EXPERIMENTAL_COLOR_PMULTH8=1)
+endif()
+
 if(WITH_PS2_EXPERIMENTAL_MERGED)
   target_compile_definitions(simd PRIVATE PS2_EXPERIMENTAL_MERGED=1)
 endif()
@@ -580,7 +656,24 @@ if(WITH_PS2_EXPERIMENTAL_MERGED_PMULTH)
   target_compile_definitions(simd PRIVATE PS2_EXPERIMENTAL_MERGED_PMULTH=1)
 endif()
 
+if(WITH_PS2_EXPERIMENTAL_MERGED_PMULTH8)
+  target_compile_definitions(simd PRIVATE PS2_EXPERIMENTAL_MERGED_PMULTH8=1)
+endif()
+
+if(WITH_PS2_EXPERIMENTAL_MERGED_ADD_PACK)
+  target_compile_definitions(simd PRIVATE PS2_EXPERIMENTAL_MERGED_ADD_PACK=1)
+endif()
+
+if(WITH_PS2_EXPERIMENTAL_MERGED_VECTOR_OFFSETS)
+  target_compile_definitions(simd PRIVATE PS2_EXPERIMENTAL_MERGED_VECTOR_OFFSETS=1)
+endif()
+
 option(WITH_PS2_MMI_TESTS "Build PS2 MMI SIMD kernel verification ELFs" OFF)
+option(WITH_PS2_MMI_ALL_IN_ONE
+  "Build one EE ELF with scalar/PMULTH variants, correctness and rotated-median A/B benchmarks" OFF)
+if(WITH_PS2_MMI_ALL_IN_ONE AND NOT WITH_PS2_MMI_TESTS)
+  message(FATAL_ERROR "WITH_PS2_MMI_ALL_IN_ONE requires WITH_PS2_MMI_TESTS=ON")
+endif()
 if(WITH_PS2_MMI_TESTS)
   if(NOT ENABLE_STATIC)
     message(FATAL_ERROR "WITH_PS2_MMI_TESTS requires ENABLE_STATIC=ON")
@@ -613,7 +706,96 @@ if(WITH_PS2_MMI_TESTS)
       main=ps2_test_${test} printf=ps2_test_printf puts=ps2_test_puts)
     list(APPEND PS2_TEST_OBJECTS $<TARGET_OBJECTS:ps2_test_${test}>)
   endforeach()
-  add_executable(ps2_mmi_test_suite ps2/test-suite.c ${PS2_TEST_OBJECTS})
+  # Generate independent implementations, so switching benchmark variants
+  # never requires rebuilding/reflashing another ELF.
+  if(WITH_PS2_MMI_ALL_IN_ONE)
+    check_c_source_compiles("
+      int main(void) {
+        __asm__ volatile(
+          \"pmulth $10, $8, $9;\"
+          \"pmaddh $10, $8, $9;\"
+          \"paddw $11, $10, $9;\"
+          \"psraw $11, $11, 16;\"
+          \"ppach $12, $11, $10\"
+          : : : \"$8\", \"$9\", \"$10\", \"$11\", \"$12\");
+        return 0;
+      }" HAVE_PS2_ALL_VARIANTS)
+    if(NOT HAVE_PS2_ALL_VARIANTS)
+      message(FATAL_ERROR "The all-in-one ELF requires PMADDH and PPACH assembler support")
+    endif()
+
+    set(PS2_BENCH_OBJECTS)
+    foreach(PS2_BENCH_VARIANT scalar pmul4 pmul8 addpack vector)
+      set(variant_source
+        "${CMAKE_CURRENT_BINARY_DIR}/ps2-bench-merged-${PS2_BENCH_VARIANT}.c")
+      configure_file(ps2/bench-merged-variant.c.in "${variant_source}" @ONLY)
+      add_library(ps2_bench_merged_${PS2_BENCH_VARIANT} OBJECT "${variant_source}")
+      if(NOT PS2_BENCH_VARIANT STREQUAL "scalar")
+        target_compile_definitions(ps2_bench_merged_${PS2_BENCH_VARIANT}
+          PRIVATE PS2_EXPERIMENTAL_MERGED_PMULTH=1)
+      endif()
+      if(PS2_BENCH_VARIANT STREQUAL "pmul8" OR
+         PS2_BENCH_VARIANT STREQUAL "addpack" OR
+         PS2_BENCH_VARIANT STREQUAL "vector")
+        target_compile_definitions(ps2_bench_merged_${PS2_BENCH_VARIANT}
+          PRIVATE PS2_EXPERIMENTAL_MERGED_PMULTH8=1)
+      endif()
+      if(PS2_BENCH_VARIANT STREQUAL "addpack" OR
+         PS2_BENCH_VARIANT STREQUAL "vector")
+        target_compile_definitions(ps2_bench_merged_${PS2_BENCH_VARIANT}
+          PRIVATE PS2_EXPERIMENTAL_MERGED_ADD_PACK=1)
+      endif()
+      if(PS2_BENCH_VARIANT STREQUAL "vector")
+        target_compile_definitions(ps2_bench_merged_vector
+          PRIVATE PS2_EXPERIMENTAL_MERGED_VECTOR_OFFSETS=1)
+      endif()
+      list(APPEND PS2_BENCH_OBJECTS
+        $<TARGET_OBJECTS:ps2_bench_merged_${PS2_BENCH_VARIANT}>)
+    endforeach()
+
+    foreach(PS2_BENCH_VARIANT scalar pmul4 pmul8)
+      set(variant_source
+        "${CMAKE_CURRENT_BINARY_DIR}/ps2-bench-color-${PS2_BENCH_VARIANT}.c")
+      configure_file(ps2/bench-color-variant.c.in "${variant_source}" @ONLY)
+      add_library(ps2_bench_color_${PS2_BENCH_VARIANT} OBJECT "${variant_source}")
+      if(NOT PS2_BENCH_VARIANT STREQUAL "scalar")
+        target_compile_definitions(ps2_bench_color_${PS2_BENCH_VARIANT}
+          PRIVATE PS2_EXPERIMENTAL_COLOR_PMULTH=1)
+      endif()
+      if(PS2_BENCH_VARIANT STREQUAL "pmul8")
+        target_compile_definitions(ps2_bench_color_pmul8
+          PRIVATE PS2_EXPERIMENTAL_COLOR_PMULTH8=1)
+      endif()
+      list(APPEND PS2_BENCH_OBJECTS
+        $<TARGET_OBJECTS:ps2_bench_color_${PS2_BENCH_VARIANT}>)
+    endforeach()
+
+    foreach(PS2_BENCH_VARIANT evenoff evenon)
+      set(variant_source
+        "${CMAKE_CURRENT_BINARY_DIR}/ps2-bench-idct-${PS2_BENCH_VARIANT}.c")
+      configure_file(ps2/bench-idct-variant.c.in "${variant_source}" @ONLY)
+      add_library(ps2_bench_idct_${PS2_BENCH_VARIANT} OBJECT "${variant_source}")
+      if(PS2_BENCH_VARIANT STREQUAL "evenon")
+        target_compile_definitions(ps2_bench_idct_evenon
+          PRIVATE PS2_EXPERIMENTAL_IDCT_EVEN=1)
+      endif()
+      list(APPEND PS2_BENCH_OBJECTS
+        $<TARGET_OBJECTS:ps2_bench_idct_${PS2_BENCH_VARIANT}>)
+    endforeach()
+    set(PS2_BENCH_SOURCE
+      ps2/bench-suite.c ps2/bench-merged.c ps2/bench-color.c
+      ps2/bench-sampling.c ps2/bench-idct.c ps2/bench-ab.c
+      ps2/bench-quantize.c ps2/test-jpeg-stream.c)
+  else()
+    set(PS2_BENCH_SOURCE)
+    set(PS2_BENCH_OBJECTS)
+  endif()
+
+  add_executable(ps2_mmi_test_suite ps2/test-suite.c
+    ${PS2_TEST_OBJECTS} ${PS2_BENCH_SOURCE} ${PS2_BENCH_OBJECTS})
+  if(WITH_PS2_MMI_ALL_IN_ONE)
+    target_compile_definitions(ps2_mmi_test_suite PRIVATE PS2_MMI_ALL_IN_ONE=1)
+  endif()
   set_target_properties(ps2_mmi_test_suite PROPERTIES SUFFIX ".elf")
   target_link_libraries(ps2_mmi_test_suite jpeg-static -ldebug)
   if(WITH_PS2_EXPERIMENTAL_IDCT_EVEN)

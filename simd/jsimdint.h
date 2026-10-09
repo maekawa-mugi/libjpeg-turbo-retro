@@ -563,6 +563,9 @@ EXTERN(void) jsimd_quantize_rvv
 EXTERN(void) jsimd_quantize_mmi
   (JCOEFPTR coef_block, DCTELEM *divisors, DCTELEM *workspace);
 
+EXTERN(void) jsimd_quantize_ps2mmi
+  (JCOEFPTR coef_block, DCTELEM *divisors, DCTELEM *workspace);
+
 
 /* Floating Point Quantization */
 

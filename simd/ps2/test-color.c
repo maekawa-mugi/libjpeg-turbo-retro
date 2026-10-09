@@ -1,9 +1,10 @@
 /*
  * PS2 MMI YCbCr-to-RGB reference test for all seven output layouts.
  *
- * The four-byte formats test R5900 MMI clamp/pack, and the three-byte
- * formats exercise the scalar tail for the same matrix.  The reference
+ * The four-byte formats test the optional PMULTH matrix and MMI clamp/pack,
+ * while the three-byte formats exercise the scalar path.  The reference
  * uses the IJG 16.16 coefficients and explicit per-component clipping.
+ * Independent offsets exercise unaligned source planes and destination rows.
  *
  * SPDX-License-Identifier: Zlib
  */
@@ -63,14 +64,16 @@ limit(int x)
 }
 
 static int
-run_test(const converter_case *cc, unsigned width, unsigned offset,
-         unsigned phase)
+run_test(const converter_case *cc, unsigned width,
+         unsigned src_offset, unsigned dst_offset, unsigned phase)
 {
   unsigned plane, row, col;
   for (plane = 0; plane < 3; plane++) {
     input_image[plane] = input_rows[plane];
     for (row = 0; row < ROWS; row++) {
-      input_rows[plane][row] = align_pointer(samples[plane][row], offset);
+      input_rows[plane][row] =
+        align_pointer(samples[plane][row],
+                      (src_offset + 3 * plane + 5 * row) & 15U);
       for (col = 0; col < width; col++) {
         unsigned v = (17 * col + 71 * row + 107 * plane +
                       phase * (col * col + 31 * plane)) & 255U;
@@ -79,13 +82,23 @@ run_test(const converter_case *cc, unsigned width, unsigned offset,
           v = (phase & 1U) ? 0 : 255;
         if (plane > 0 && col % 11 == 0)
           v = 128;
+        if (phase == 2) {
+          /* Opposing chroma endpoints stress signed multiply and rounding. */
+          v = plane == 0 ? ((col + row) & 1U ? 255 : 0) :
+              plane == 1 ? ((col + row) & 1U ? 0 : 255) :
+                           ((col + row) & 1U ? 255 : 0);
+        } else if (phase == 3 && plane > 0) {
+          /* Mixed neutral/extreme chroma in consecutive SIMD lanes. */
+          v = (col % 3 == 0) ? 128 : ((col + plane) & 1U ? 255 : 0);
+        }
         input_rows[plane][row][col] = (JSAMPLE)v;
       }
     }
   }
 
   for (row = 0; row < 2; row++) {
-    output_rows[row] = align_pointer(output_mem[row], offset);
+    output_rows[row] =
+      align_pointer(output_mem[row], (dst_offset + 7 * row) & 15U);
     memset(output_rows[row], 0xa5, WIDTH * 4 + 16);
   }
   cc->func(width, input_image, 1, output_rows, 2);
@@ -106,9 +119,9 @@ run_test(const converter_case *cc, unsigned width, unsigned offset,
 
       for (i = 0; i < (unsigned)cc->step; i++) {
         if (output_rows[row][cc->step * col + i] != expected[i]) {
-          printf("FAIL color %s width=%u offset=%u phase=%u "
+          printf("FAIL color %s width=%u src=%u dst=%u phase=%u "
                  "row=%u pixel=%u channel=%u: %u != %u\n",
-                 cc->name, width, offset, phase, row, col, i,
+                 cc->name, width, src_offset, dst_offset, phase, row, col, i,
                  (unsigned)output_rows[row][cc->step * col + i],
                  (unsigned)expected[i]);
           return 1;
@@ -131,16 +144,19 @@ main(void)
 {
   static const unsigned widths[] =
     { 1, 2, 3, 4, 5, 7, 8, 9, 15, 16, 31, 32, 33, 64, 65 };
-  unsigned ci, wi, offset, phase, checks = 0;
+  static const unsigned offsets[] = { 0, 1, 7, 15 };
+  unsigned ci, wi, src, dst, phase, checks = 0;
 
   for (ci = 0; ci < sizeof(cases) / sizeof(cases[0]); ci++)
     for (wi = 0; wi < sizeof(widths) / sizeof(widths[0]); wi++)
-      for (offset = 0; offset < 2; offset++)
-        for (phase = 0; phase < 2; phase++) {
-          if (run_test(&cases[ci], widths[wi], offset, phase))
-            return 1;
-          checks++;
-        }
+      for (src = 0; src < sizeof(offsets) / sizeof(offsets[0]); src++)
+        for (dst = 0; dst < sizeof(offsets) / sizeof(offsets[0]); dst++)
+          for (phase = 0; phase < 4; phase++) {
+            if (run_test(&cases[ci], widths[wi], offsets[src],
+                         offsets[dst], phase))
+              return 1;
+            checks++;
+          }
 
   printf("PS2 MMI YCbCr to RGB: PASS (%u cases)\n", checks);
   return 0;
