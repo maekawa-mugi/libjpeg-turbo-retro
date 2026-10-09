@@ -45,7 +45,8 @@ jsimd_quantize_ps2mmi(JCOEFPTR coef_block, DCTELEM *divisors,
 
   for (i = 0; i < DCTSIZE2; i += 8) {
     short magnitudes[8] __attribute__((aligned(16)));
-    short reciprocals[8] __attribute__((aligned(16)));
+    short reciprocal_copy[8] __attribute__((aligned(16)));
+    const short *reciprocal_src = (const short *)(divisors + i);
     int32_t products[8] __attribute__((aligned(16)));
     int valid = 1;
 
@@ -60,7 +61,6 @@ jsimd_quantize_ps2mmi(JCOEFPTR coef_block, DCTELEM *divisors,
         break;
       }
       magnitudes[lane] = (short)corrected;
-      reciprocals[lane] = (short)divisors[n];
     }
 
     if (!valid) {
@@ -70,6 +70,17 @@ jsimd_quantize_ps2mmi(JCOEFPTR coef_block, DCTELEM *divisors,
                        divisors[i + lane + 64],
                        divisors[i + lane + 192]);
       continue;
+    }
+
+    /* IJG's reciprocal table is aligned in the ordinary compressor.
+     * Read it directly by LQ instead of copying eight halfwords to
+     * the stack on every block.  Preserve an aligned temporary for
+     * callers that supply a differently aligned divisor table.
+     */
+    if (((uintptr_t)reciprocal_src & 15u) != 0) {
+      for (lane = 0; lane < 8; lane++)
+        reciprocal_copy[lane] = (short)divisors[i + lane];
+      reciprocal_src = reciprocal_copy;
     }
 
     __asm__ volatile(
@@ -86,7 +97,7 @@ jsimd_quantize_ps2mmi(JCOEFPTR coef_block, DCTELEM *divisors,
       "sq $14, 16(%2)\n\t"
       ".set pop\n\t"
       :
-      : "r" (magnitudes), "r" (reciprocals), "r" (products)
+      : "r" (magnitudes), "r" (reciprocal_src), "r" (products)
       : "$8", "$9", "$10", "$11", "$12", "$13", "$14", "memory");
 
     for (lane = 0; lane < 8; lane++) {
@@ -94,7 +105,7 @@ jsimd_quantize_ps2mmi(JCOEFPTR coef_block, DCTELEM *divisors,
       uint32_t product = (uint32_t)products[lane];
       int bits = (int)divisors[n + 192] + 16;
       int value;
-      if (((uint16_t)reciprocals[lane] & 0x8000u) != 0)
+      if (((uint16_t)divisors[n] & 0x8000u) != 0)
         product += (uint32_t)(uint16_t)magnitudes[lane] << 16;
       value = (int)(product >> bits);
       if (workspace[n] < 0)

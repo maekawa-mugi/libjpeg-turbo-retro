@@ -17,7 +17,7 @@ orders, six to twelve 64-bit `GetTimerSystemTime()` samples and an even
 median. Output hashes are compared outside the timed interval both
 before and after each batch. Any failure disables that workload's score.
 
-All 368 comparison rows must be present, with a final 9/9 correctness
+All 376 comparison rows must be present, with a final 9/9 correctness
 PASS. Run `python3 simd/ps2/analyze-bench.py ps2-console.log` to obtain
 geometric-mean speedups, worst-case regressions and a gated candidate
 (>=1.05x geometric mean, >=0.95x worst by default).
@@ -135,7 +135,7 @@ normal JPEG dispatch until hardware validation and benchmarking.
   in `jquanti-mmi.c`; choose `WITH_PS2_EXPERIMENTAL_QUANTIZE=ON`
   (default OFF) for normal compression dispatch.  It handles unusual
   operand magnitudes with an IJG-equivalent C fallback and has a separate
-  2048-case on-EE regression and comparison against the scalar formula.
+  3072-case on-EE regression and comparison against the scalar formula.
 - Regular four-byte YCbCr conversion has an independent eight-pixel
   `PMULTH` option: `WITH_PS2_EXPERIMENTAL_COLOR_PMULTH8=ON`
   requires `WITH_PS2_EXPERIMENTAL_COLOR_PMULTH=ON`; both default OFF.

@@ -92,7 +92,8 @@ main(void)
     cases++;
   }
 
-  for (q = 1; q <= 255; q++) {
+  /* Actual islow quantizers use quantval * 8 and can exceed 255. */
+  for (q = 1; q <= 2040; q++) {
     uint16_t reciprocal, correction;
     int shift;
     get_reciprocal(q, &reciprocal, &correction, &shift);

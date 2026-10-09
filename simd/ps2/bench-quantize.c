@@ -9,6 +9,21 @@
 #include <string.h>
 
 #define Q_COUNT 128
+
+/* Default IJG luminance quantization matrix in natural DCT order.
+ * At quality 75/95 the standard quality scaling is 50/10 percent.
+ * The islow FDCT uses 8 times the actual quantization coefficient.
+ */
+static const unsigned char jpeg_luma_quant[64] = {
+  16, 11, 10, 16, 24, 40, 51, 61,
+  12, 12, 14, 19, 26, 58, 60, 55,
+  14, 13, 16, 24, 40, 57, 69, 56,
+  14, 17, 22, 29, 51, 87, 80, 62,
+  18, 22, 37, 56, 68, 109, 103, 77,
+  24, 35, 55, 64, 81, 104, 113, 92,
+  49, 64, 78, 87, 103, 121, 120, 101,
+  72, 92, 95, 98, 112, 100, 103, 99
+};
 static DCTELEM divisor_mem[4 * 64 + 16] __attribute__((aligned(16)));
 static DCTELEM workspace_mem[64 + 16] __attribute__((aligned(16)));
 static JCOEF ref_mem[64 + 16] __attribute__((aligned(16)));
@@ -72,8 +87,18 @@ prepare_quant(unsigned profile, unsigned align, unsigned seed, q_ctx *q)
     unsigned d;
     int value;
     state = next_q_random(&state);
-    d = i % 11u == 0 ? 1u : i % 13u == 0 ? 16u :
-        i % 17u == 0 ? 128u : 2u + (state % 254u);
+    if (profile >= 4) {
+      unsigned scale = profile == 4 ? 50u : 10u;
+      unsigned quant = ((unsigned)jpeg_luma_quant[i] * scale + 50u) / 100u;
+      if (quant == 0)
+        quant = 1;
+      /* Mirrors the islow compressor's quantval << 3. */
+      d = quant * 8u;
+    } else {
+      /* Retain artificial divisor=1, power-of-two and broad edge tests. */
+      d = i % 11u == 0 ? 1u : i % 13u == 0 ? 16u :
+          i % 17u == 0 ? 128u : 2u + (state % 254u);
+    }
     set_reciprocal(q->divisors, i, d);
     state = next_q_random(&state);
     value = (int)((state >> 8) % 16385u) - 8192;
@@ -83,6 +108,15 @@ prepare_quant(unsigned profile, unsigned align, unsigned seed, q_ctx *q)
       value = 0;
     else if (profile == 3)
       value = (i & 1u) ? -32768 : 32767;
+    else if (profile >= 4) {
+      /* JPEG-like blocks: stronger DC and mostly small or zero AC. */
+      if (i == 0)
+        value = (int)((state >> 8) % 4097u) - 2048;
+      else if ((state & 3u) != 0)
+        value = 0;
+      else
+        value = (int)((state >> 8) % 1025u) - 512;
+    }
     q->workspace[i] = (DCTELEM)value;
   }
   for (i = 64; i < 80; i++) {
@@ -136,10 +170,11 @@ reset_quant(void *context)
 int
 ps2_bench_run_quantize(void)
 {
-  const char *names[4] = { "dc_only", "sparse", "dense", "extreme" };
+  const char *names[6] = { "dc_only", "sparse", "dense", "extreme",
+                           "jpeg_q75", "jpeg_q95" };
   unsigned p, align, seed, i;
   int failures = 0;
-  for (p = 0; p < 4; p++)
+  for (p = 0; p < 6; p++)
     for (align = 0; align < 2; align++)
       for (seed = 0; seed < 256; seed++) {
         q_ctx q, ref;
@@ -165,8 +200,8 @@ quant_done:
     puts("SKIP,quantize,correctness_failed");
     return 1;
   }
-  puts("PASS,quantize,correctness,2048_cases");
-  for (p = 0; p < 4; p++)
+  puts("PASS,quantize,correctness,3072_cases");
+  for (p = 0; p < 6; p++)
     for (align = 0; align < 2; align++) {
       q_ctx q[2];
       ps2_bench_variant entries[2];

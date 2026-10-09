@@ -86,7 +86,7 @@ text file.  Back on the PC:
 python3 simd/ps2/analyze-bench.py pcsx2-console.txt
 ```
 
-The script requires **all 368 timing rows**, a complete 9/9 PASS, matching
+The script requires **all 376 timing rows**, a complete 9/9 PASS, matching
 workloads and matching post-timer output digests before recommending a
 candidate. It ranks by geometric-mean and worst-case speedup against pure C
 (or IJG C). By default a candidate must deliver >= 1.05x geometric mean
@@ -104,7 +104,7 @@ without any measured case below 0.95x. Otherwise retain the baseline.
 | YCbCr to RGB | pure C plus three MMI paths, 7 layouts, 560 cases per variant |
 | Merged RGBX | pure C plus five MMI paths, h2v1/h2v2 and all 4 layouts, 640 cases per variant |
 | End-to-end JPEG streams | 384 RGB vs RGBX/BGRX/XBGR/XRGB comparisons over 8 widths, 3 subsampling modes, fancy on/off, islow/ifast |
-| Integer quantization | IJG reciprocal scalar and new 8-lane MMI quantizer, 2048 cases including signed and divisor edge cases |
+| Integer quantization | IJG reciprocal scalar and new 8-lane MMI quantizer, 3072 cases including signed/divisor edges and quality-75/95 JPEG matrices |
 
 The preexisting tests continue to run unchanged.  The full JPEG-stream
 test checks output-layout consistency and real compression/decompression,

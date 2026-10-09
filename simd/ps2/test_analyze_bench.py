@@ -37,7 +37,7 @@ class TestVerdicts(unittest.TestCase):
         self.assertFalse(errors)
         ratios, missing = REPORT.inspect_matrix(rows)
         self.assertFalse(missing)
-        self.assertEqual(len(rows), 368)
+        self.assertEqual(len(rows), 376)
         results = REPORT.verdicts(ratios)
         for cat, (_, candidate) in results.items():
             self.assertIsNotNone(candidate, cat)

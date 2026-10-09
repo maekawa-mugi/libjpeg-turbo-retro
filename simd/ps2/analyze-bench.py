@@ -32,7 +32,7 @@ CASE_COUNT = {
     "fancy_up": 8,
     "downsample": 8,
     "idct": 16,
-    "quantize": 8,
+    "quantize": 12,
 }
 
 
