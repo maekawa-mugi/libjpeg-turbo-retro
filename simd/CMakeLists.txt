@@ -796,7 +796,8 @@ if(WITH_PS2_MMI_TESTS)
   if(WITH_PS2_MMI_ALL_IN_ONE)
     target_compile_definitions(ps2_mmi_test_suite PRIVATE PS2_MMI_ALL_IN_ONE=1)
   endif()
-  set_target_properties(ps2_mmi_test_suite PROPERTIES SUFFIX ".elf")
+  set_target_properties(ps2_mmi_test_suite PROPERTIES
+    OUTPUT_NAME "libjpeg_turbo_mmi" SUFFIX ".elf")
   target_link_libraries(ps2_mmi_test_suite jpeg-static -ldebug)
   if(WITH_PS2_EXPERIMENTAL_IDCT_EVEN)
     target_compile_definitions(ps2_mmi_test_suite PRIVATE
