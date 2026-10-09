@@ -82,5 +82,5 @@ case "${PS2_ALL_IN_ONE:-ON}" in
   OFF|off|FALSE|false|0)
     echo "Legacy ELF: check the final 7/7 result." ;;
   *)
-    echo "One-boot ELF: capture CSV and check the final 9/9 result." ;;
+    echo "One-boot ELF: capture CSV and check RESULT: PASS on the GS display." ;;
 esac
