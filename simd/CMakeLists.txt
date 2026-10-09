@@ -785,7 +785,7 @@ if(WITH_PS2_MMI_TESTS)
     set(PS2_BENCH_SOURCE
       ps2/bench-suite.c ps2/bench-merged.c ps2/bench-color.c
       ps2/bench-sampling.c ps2/bench-idct.c ps2/bench-ab.c
-      ps2/bench-quantize.c ps2/test-jpeg-stream.c)
+      ps2/bench-quantize.c ps2/bench-spr.c ps2/test-jpeg-stream.c)
   else()
     set(PS2_BENCH_SOURCE)
     set(PS2_BENCH_OBJECTS)
