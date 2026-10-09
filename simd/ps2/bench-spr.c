@@ -5,6 +5,7 @@
  */
 #include "../jsimdint.h"
 #include <timer.h>
+#include <debug.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -94,6 +95,7 @@ int ps2_bench_run_spr(void)
                                       {64,128,256,512},
                                       {64,128,256,512}};
   uint64_t samples[5][SPR_SAMPLES], med[5];
+  double summary[3]={0,0,0};
   unsigned kind,vertical,idx,mode,step,s,i,row,col,cases=0;
   for(row=0;row<INPUT_ROWS;row++) {
     input_ptr[row]=ram_in[row];
@@ -142,10 +144,16 @@ int ps2_bench_run_spr(void)
                  (unsigned long long)med[mode],
                  (double)med[0]/(double)med[mode]);
         }
+        if(vertical==2 && width==256u)
+          summary[kind]=(double)med[0]/(double)med[3];
         /* Verify the result was actually written, not only untouched padding. */
         if(count==0 || rows==0) return 1;
         ++cases;
       }
+  scr_setXY(0,14);
+  scr_setfontcolor(0x00ffffff);
+  scr_printf("SPR both/RAM @256 P:%4.2fx F:%4.2fx D:%4.2fx   ",
+             summary[0],summary[1],summary[2]);
   printf("JPEG_SPR_RESULT,PASS,cases=%u,sink=%lu\n",
          cases,(unsigned long)escape);
   return 0;
