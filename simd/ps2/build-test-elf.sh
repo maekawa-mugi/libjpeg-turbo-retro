@@ -57,9 +57,28 @@ cmake -S "$root" -B "$root/build-ps2" \
   -DENABLE_SHARED=OFF -DENABLE_STATIC=ON \
   -DWITH_SIMD=ON -DREQUIRE_SIMD=ON -DWITH_TOOLS=OFF \
   -DWITH_TURBOJPEG=OFF -DWITH_PS2_MMI_TESTS=ON \
+  -DWITH_PS2_MMI_ALL_IN_ONE="${PS2_ALL_IN_ONE:-ON}" \
   -DWITH_PS2_EXPERIMENTAL_IDCT=ON -DWITH_PS2_EXPERIMENTAL_COLOR=ON \
+  -DWITH_PS2_EXPERIMENTAL_QUANTIZE="${PS2_QUANTIZE:-OFF}" \
   -DWITH_PS2_EXPERIMENTAL_IDCT_EVEN="${PS2_IDCT_EVEN:-OFF}" \
+  -DWITH_PS2_EXPERIMENTAL_COLOR_PMULTH="${PS2_COLOR_PMULTH:-OFF}" \
+  -DWITH_PS2_EXPERIMENTAL_COLOR_PMULTH8="${PS2_COLOR_PMULTH8:-OFF}" \
   -DWITH_PS2_EXPERIMENTAL_MERGED="${PS2_MERGED:-OFF}" \
-  -DWITH_PS2_EXPERIMENTAL_MERGED_PMULTH="${PS2_MERGED_PMULTH:-OFF}"
+  -DWITH_PS2_EXPERIMENTAL_MERGED_PMULTH="${PS2_MERGED_PMULTH:-OFF}" \
+  -DWITH_PS2_EXPERIMENTAL_MERGED_PMULTH8="${PS2_MERGED_PMULTH8:-OFF}" \
+  -DWITH_PS2_EXPERIMENTAL_MERGED_ADD_PACK="${PS2_MERGED_ADD_PACK:-OFF}" \
+  -DWITH_PS2_EXPERIMENTAL_MERGED_VECTOR_OFFSETS="${PS2_MERGED_VECTOR_OFFSETS:-OFF}"
 cmake --build "$root/build-ps2" -j"${JOBS:-8}" --target ps2_mmi_test_suite
+case "${PS2_ALL_IN_ONE:-ON}" in
+  OFF|off|FALSE|false|0) ;;
+  *) bash "$root/simd/ps2/preflight-elf.sh" \
+       "$root/build-ps2/simd/ps2_mmi_test_suite.elf" ;;
+esac
 echo "ELF: $root/build-ps2/simd/ps2_mmi_test_suite.elf"
+echo "All-in-one: ${PS2_ALL_IN_ONE:-ON}; CSV appears on stdout / PCSX2 console."
+case "${PS2_ALL_IN_ONE:-ON}" in
+  OFF|off|FALSE|false|0)
+    echo "Legacy ELF: check the final 7/7 result." ;;
+  *)
+    echo "One-boot ELF: capture CSV and check the final 9/9 result." ;;
+esac

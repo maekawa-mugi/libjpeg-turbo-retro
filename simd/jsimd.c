@@ -1219,6 +1219,11 @@ jsimd_set_quantize(j_compress_ptr cinfo, quantize_method_ptr *method)
     *method = jsimd_quantize_mmi;
     return JSIMD_MMI;
   }
+#elif SIMD_ARCHITECTURE == PS2_EE && defined(PS2_EXPERIMENTAL_QUANTIZE)
+  if (cinfo->master->simd_support & JSIMD_PS2_MMI) {
+    *method = jsimd_quantize_ps2mmi;
+    return JSIMD_PS2_MMI;
+  }
 #endif
 
   return JSIMD_NONE;

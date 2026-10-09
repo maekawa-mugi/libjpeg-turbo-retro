@@ -1,0 +1,3 @@
+/* A separately compiled experimental even-rotation IDCT variant. */
+#define jsimd_idct_islow_ps2mmi ps2_bench_idct_@PS2_BENCH_VARIANT@
+#include "@CMAKE_CURRENT_SOURCE_DIR@/ps2/jidctint-mmi.c"
