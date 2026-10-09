@@ -2,6 +2,8 @@
 # Build the on-screen test suite with an installed PS2SDK and EE toolchain.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
+build_jobs=${BUILD_JOBS:-${JOBS:-$(nproc)}}
+(( build_jobs >= 1 )) || { echo "BUILD_JOBS must be >= 1" >&2; exit 2; }
 : "${PS2DEV:=/usr/local/ps2dev}"
 : "${PS2SDK:=$PS2DEV/ps2sdk}"
 if [[ ! -f "$PS2SDK/ee/lib/libdebug.a" &&
@@ -36,7 +38,7 @@ if [[ ! -f "$PS2SDK/ee/lib/libdebug.a" ||
   : > "$sdk_log"
   for part in startup kernel libcglue libpthreadglue debug rpc/cdvd; do
     echo "Building PS2SDK EE $part (log: $sdk_log)"
-    make -C "$PS2SDKSRC/ee/$part" -j"${JOBS:-8}" >> "$sdk_log" 2>&1 || {
+    make -C "$PS2SDKSRC/ee/$part" -j"$build_jobs" >> "$sdk_log" 2>&1 || {
       tail -60 "$sdk_log" >&2
       exit 1
     }
@@ -68,13 +70,13 @@ cmake -S "$root" -B "$root/build-ps2" \
   -DWITH_PS2_EXPERIMENTAL_MERGED_PMULTH8="${PS2_MERGED_PMULTH8:-OFF}" \
   -DWITH_PS2_EXPERIMENTAL_MERGED_ADD_PACK="${PS2_MERGED_ADD_PACK:-OFF}" \
   -DWITH_PS2_EXPERIMENTAL_MERGED_VECTOR_OFFSETS="${PS2_MERGED_VECTOR_OFFSETS:-OFF}"
-cmake --build "$root/build-ps2" -j"${JOBS:-8}" --target ps2_mmi_test_suite
+cmake --build "$root/build-ps2" -j"$build_jobs" --target ps2_mmi_test_suite
 case "${PS2_ALL_IN_ONE:-ON}" in
   OFF|off|FALSE|false|0) ;;
   *) bash "$root/simd/ps2/preflight-elf.sh" \
-       "$root/build-ps2/simd/ps2_mmi_test_suite.elf" ;;
+       "$root/build-ps2/simd/libjpeg_turbo_mmi.elf" ;;
 esac
-echo "ELF: $root/build-ps2/simd/ps2_mmi_test_suite.elf"
+echo "ELF: $root/build-ps2/simd/libjpeg_turbo_mmi.elf (parallel jobs=$build_jobs)"
 echo "All-in-one: ${PS2_ALL_IN_ONE:-ON}; CSV appears on stdout / PCSX2 console."
 case "${PS2_ALL_IN_ONE:-ON}" in
   OFF|off|FALSE|false|0)
