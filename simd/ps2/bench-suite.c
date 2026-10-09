@@ -74,9 +74,9 @@ ps2_bench_csv(const char *category, const char *variant,
          category, variant, workload, width, alignment,
          (unsigned long long)ticks, repeats, scaled);
   /* Called after sampling, never from inside a timed region. */
-  ps2_ui_bench_progress(category,variant,++timing_count);
+  ps2_ui_bench_progress(category,variant,timing_count + 1);
   if (timing_count < MAX_TIMINGS) {
-    unsigned i = timing_count - 1;
+    unsigned i = timing_count++;
     snprintf(timings[i].category, sizeof(timings[i].category),
              "%s", category);
     snprintf(timings[i].variant, sizeof(timings[i].variant), "%s", variant);
@@ -142,11 +142,20 @@ int ps2_bench_run_group(unsigned group)
   fflush(stdout);
   return rc!=0;
 }
+void ps2_bench_skip_group(unsigned group)
+{
+  const char *const names[]={"quantize","sampling","idct","color","merged"};
+  if(group>=5)return;
+  ++total_bench_failures;
+  ps2_ui_bench_progress(names[group],"SKIP: failed test",timing_count);
+  printf("BENCH_GROUP,%s,SKIP: failed correctness check\n",names[group]);
+  fflush(stdout);
+}
 int ps2_bench_end(void)
 {
   printf("BENCH_END,failures=%d\n",total_bench_failures);
   fflush(stdout);
-  return total_bench_failures!=0;
+  return total_bench_failures;
 }
 int
 ps2_bench_execute(void)
