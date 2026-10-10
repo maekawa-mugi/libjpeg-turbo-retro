@@ -623,6 +623,11 @@ option(WITH_PS2_EXPERIMENTAL_IDCT_EVEN
 option(WITH_PS2_APPROX_FPU_IDCT
   "Default JPEG decoding to native PS2 single-precision floating IDCT (not IJG bit-exact)"
   OFF)
+# Enable the approximate COP1 IDCT as a benchmark contender without
+# modifying the default JPEG decoding method of the library itself.
+option(WITH_PS2_BENCH_APPROX_FPU_IDCT
+  "Include the COP1 float IDCT contender and quality checks in the one-ELF benchmark"
+  OFF)
 if(WITH_PS2_APPROX_FPU_IDCT)
   # jconfig.h is configured by the parent CMake directory after
   # add_subdirectory(simd); propagate the switch beyond this scope.
@@ -864,6 +869,14 @@ if(WITH_PS2_MMI_TESTS)
     ${PS2_TEST_OBJECTS} ${PS2_BENCH_SOURCE} ${PS2_BENCH_OBJECTS})
   if(WITH_PS2_MMI_ALL_IN_ONE)
     target_compile_definitions(ps2_mmi_test_suite PRIVATE PS2_MMI_ALL_IN_ONE=1)
+  endif()
+  if(WITH_PS2_BENCH_APPROX_FPU_IDCT)
+    target_compile_definitions(ps2_mmi_test_suite
+      PRIVATE PS2_APPROX_FPU_IDCT=1)
+  endif()
+  if(WITH_PS2_APPROX_FPU_IDCT)
+    target_compile_definitions(ps2_mmi_test_suite
+      PRIVATE PS2_APPROX_FPU_DECODER_DEFAULT=1)
   endif()
   if(WITH_PS2_EXPERIMENTAL_VU0_IDCT)
     target_compile_definitions(ps2_mmi_test_suite
