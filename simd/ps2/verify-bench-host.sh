@@ -57,6 +57,7 @@ done
   -DPS2_MMI_ALL_IN_ONE -I"$tmp" simd/ps2/test-suite.c
 bash -n simd/ps2/build-test-elf.sh
 bash -n simd/ps2/preflight-elf.sh
+bash simd/ps2/test-build-matrix-host.sh
 python3 -m py_compile simd/ps2/analyze-bench.py
 python3 simd/ps2/test_analyze_bench.py
 echo "PASS: native benchmark syntax, shell and verdict regression"
