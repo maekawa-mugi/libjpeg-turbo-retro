@@ -70,6 +70,29 @@ PCSX2, and compare `CSV,color,table` / `CSV,merged,table` to
 `test-color-table-host.c` checks all 65,536 chroma byte pairs against the
 IJG reference math (and representative luma/clipping cases).
 
+## Optional VU0 and VIF0 DMA novelty benchmarks
+
+Set `PS2_VU0_IDCT=ON` and/or `PS2_VIF0_DMA=ON` when running
+`simd/ps2/build-test-elf.sh` to add two **separately timed experimental**
+rows to the single-boot GS display. Both default to OFF. They are not
+production JPEG dispatch candidates.
+
+- `vu_idct / vu0_macro`: a real COP2 VU0 macro-mode 4-lane
+  **float matrix IDCT** against a scalar float matrix baseline. It
+  includes dequantization, two matrix passes, transposition, and clipping,
+  but does **not** promise IJG integer bit-exact output. 128 differential
+  blocks must be within 3 levels to enter timing.
+- `vif0_dma / vif0_dma`: real channel-0 VIF0 DMA with V4_32 UNPACK
+  of 256 bytes to VU0 data memory, compared with CPU writes to the
+  same destination. Cache flushing and synchronization are counted.
+  This is a **data transfer** benchmark, not a DMA-fed JPEG IDCT;
+  it cannot predict whole-image speedup.
+
+The GS ratios print slower results too (e.g. 0.50x). The normal
+JPEG A/B verdict parser treats these categories as optional novelty
+data, separate from exact IDCT winner selection. Rebuild and run in
+PCSX2/actual hardware before treating the results as measured.
+
 ## Experimental exact/direct and native-FPU IDCT benchmarks
 
 `idct/direct` is a new bit-exact IJG-integer contender: it avoids the
