@@ -96,6 +96,37 @@ profile binaries after a successful build. Run
 `bash simd/ps2/verify-bench-host.sh` for host-only tests;
 a PS2 cross compiler is needed to produce/validate the actual ELF.
 
+## New dense integer IDCT candidates (2026-10-10)
+
+Measured in the supplied PCSX2 transcript for aligned dense 8x8 blocks:
+`ijg_c` 1411 ticks, `direct` 1595 ticks, older MMI `evenoff` 2875
+ticks; in DC-only, `direct` needs 141 ticks versus `ijg_c` 509.
+The two added **bit-exact, separately compiled** candidates are:
+
+- `lut`: a 1024-byte lookup table for the exact IJG post-IDCT
+  signed/10-bit wrapping range map; moving coefficient/quant pointers
+  to remove repeated index/pointer-difference calculations. Preserves
+  DC-only and zero-row fast paths.
+- `lut_norow`: the above plus an early test of four AC coefficients
+  before the complete MMI DC-only test; skips the zero-row check that
+  rarely helps dense data. The skipped row test may hurt sparse cases.
+
+Both execute the full 2048-case byte-for-byte reference validation
+(including output sentinels and unaligned coefficient/quant buffers)
+before a timing result can be used. Neither is promoted into normal
+JPEG dispatch automatically. The final one-shot GS summary considers
+these variants as possible **exact** IDCT winners only after validation.
+FPU errors, VU0 math, and VIF0 DMA are displayed separately.
+
+A second fix initializes the shared JPEG range-limit buffer for both
+`_jpeg_idct_islow` (which indexes the base + 128) and
+`_jpeg_idct_float` (which uses the base itself). Previously, the
+floating-point benchmark read an uninitialized 128-byte base segment
+and falsely reported up to 255 levels of difference. A portable host
+regression now exhaustively checks the complete overlapping range views
+and the 1024-entry LUT. The PS2 FPU's real rounding error must be
+re-measured on PCSX2; no speedup or quality improvement is claimed yet.
+
 ## Optional VU0 and VIF0 DMA novelty benchmarks
 
 The default `simd/ps2/build-test-elf.sh` now includes both VU0 and
@@ -140,10 +171,11 @@ bash simd/ps2/build-test-elf.sh
 ```
 
 The FPU test prints max absolute pixel difference and differing-pixel count,
-plus validates unchanged output guards.  A difference above 3 or a modified
-guard suppresses FPU timing; the strict integer contenders remain byte-exact.
+plus validates unchanged output guards.  A modified output guard suppresses FPU timing; a pixel difference above 3
+prints a quality warning but still permits experiment-only timing. Exact
+integer contenders retain byte-exact output.
 Without this flag, neither the decoder default nor FPU benchmark is changed.
-New single-boot timing matrix: 484 rows by default, 500 with qualifying FPU.
+New one-ELF matrix: 536 timing rows without FPU, 552 with guarded FPU.
 Run `python3 simd/ps2/analyze-bench.py <console-log>` for completeness and
 relative performance.  PCSX2/real-hardware measurements are still required.
 
