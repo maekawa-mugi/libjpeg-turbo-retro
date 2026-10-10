@@ -725,7 +725,7 @@ if(WITH_PS2_MMI_TESTS)
     endif()
 
     set(PS2_BENCH_OBJECTS)
-    foreach(PS2_BENCH_VARIANT scalar pmul4 pmul8 addpack vector)
+    foreach(PS2_BENCH_VARIANT scalar pmul4 pmul8 addpack vector table)
       set(variant_source
         "${CMAKE_CURRENT_BINARY_DIR}/ps2-bench-merged-${PS2_BENCH_VARIANT}.c")
       configure_file(ps2/bench-merged-variant.c.in "${variant_source}" @ONLY)
@@ -750,11 +750,15 @@ if(WITH_PS2_MMI_TESTS)
         target_compile_definitions(ps2_bench_merged_vector
           PRIVATE PS2_EXPERIMENTAL_MERGED_VECTOR_OFFSETS=1)
       endif()
+      if(PS2_BENCH_VARIANT STREQUAL "table")
+        target_compile_definitions(ps2_bench_merged_table
+          PRIVATE PS2_EXPERIMENTAL_MERGED_TABLE=1)
+      endif()
       list(APPEND PS2_BENCH_OBJECTS
         $<TARGET_OBJECTS:ps2_bench_merged_${PS2_BENCH_VARIANT}>)
     endforeach()
 
-    foreach(PS2_BENCH_VARIANT scalar pmul4 pmul8 regpack)
+    foreach(PS2_BENCH_VARIANT scalar pmul4 pmul8 regpack table)
       set(variant_source
         "${CMAKE_CURRENT_BINARY_DIR}/ps2-bench-color-${PS2_BENCH_VARIANT}.c")
       configure_file(ps2/bench-color-variant.c.in "${variant_source}" @ONLY)
@@ -771,6 +775,10 @@ if(WITH_PS2_MMI_TESTS)
       if(PS2_BENCH_VARIANT STREQUAL "regpack")
         target_compile_definitions(ps2_bench_color_regpack
           PRIVATE PS2_EXPERIMENTAL_COLOR_REGISTER=1)
+      endif()
+      if(PS2_BENCH_VARIANT STREQUAL "table")
+        target_compile_definitions(ps2_bench_color_table
+          PRIVATE PS2_EXPERIMENTAL_COLOR_TABLE=1)
       endif()
       list(APPEND PS2_BENCH_OBJECTS
         $<TARGET_OBJECTS:ps2_bench_color_${PS2_BENCH_VARIANT}>)
