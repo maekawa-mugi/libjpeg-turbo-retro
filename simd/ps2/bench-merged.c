@@ -41,7 +41,7 @@ static const struct {
   }},
   MERGED_VARIANT(scalar), MERGED_VARIANT(pmul4),
   MERGED_VARIANT(pmul8), MERGED_VARIANT(addpack),
-  MERGED_VARIANT(vector)
+  MERGED_VARIANT(vector), MERGED_VARIANT(table)
 };
 
 static const struct {
