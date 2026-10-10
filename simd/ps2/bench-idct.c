@@ -18,8 +18,8 @@ static JSAMPLE sample_range[5 * 256 + 128];
 static JCOEF coeff_mem[80] __attribute__((aligned(16)));
 static ISLOW_MULT_TYPE quant_mem[80] __attribute__((aligned(16)));
 static JSAMPLE refmem[8][DCT_ROW_BYTES] __attribute__((aligned(16)));
-static JSAMPLE outmem[3][8][DCT_ROW_BYTES] __attribute__((aligned(16)));
-static JSAMPROW refrows[8], outrows[3][8];
+static JSAMPLE outmem[4][8][DCT_ROW_BYTES] __attribute__((aligned(16)));
+static JSAMPROW refrows[8], outrows[4][8];
 
 typedef struct {
   unsigned int pattern;
@@ -64,6 +64,7 @@ initialize_idct(void)
     outrows[0][i] = outmem[0][i];
     outrows[1][i] = outmem[1][i];
     outrows[2][i] = outmem[2][i];
+    outrows[3][i] = outmem[3][i];
   }
 }
 
@@ -116,6 +117,7 @@ prepare_case(idct_case *ctx, unsigned profile,
     memset(outrows[0][i], 0xc9, DCT_ROW_BYTES);
     memset(outrows[1][i], 0xc9, DCT_ROW_BYTES);
     memset(outrows[2][i], 0xc9, DCT_ROW_BYTES);
+    memset(outrows[3][i], 0xc9, DCT_ROW_BYTES);
   }
 }
 
@@ -191,12 +193,13 @@ check_islow_output(JSAMPARRAY actual)
 int
 ps2_bench_run_idct(void)
 {
-  const ps2_idct_fn kernels[3] = {
-    ps2_bench_idct_evenoff, ps2_bench_idct_evenon, ps2_bench_idct_batch
+  const ps2_idct_fn kernels[4] = {
+    ps2_bench_idct_evenoff, ps2_bench_idct_evenon,
+    ps2_bench_idct_batch, ps2_bench_idct_direct
   };
-  const char *names[3] = { "evenoff", "evenon", "batch" };
+  const char *names[4] = { "evenoff", "evenon", "batch", "direct" };
   const char *workloads[4] = { "dc_only", "sparse", "dense", "even_stress" };
-  int valid[3] = { 1, 1, 1 };
+  int valid[4] = { 1, 1, 1, 1 };
   int failures = 0;
   unsigned profile, iteration, alignment, v;
 
@@ -208,7 +211,7 @@ ps2_bench_run_idct(void)
         idct_case ctx;
         prepare_case(&ctx, profile, iteration, (int)alignment);
         call_islow_scalar(&ctx);
-        for (v = 0; v < 3; v++) {
+        for (v = 0; v < 4; v++) {
           idct_call call;
           if (!valid[v])
             continue;
@@ -225,15 +228,15 @@ ps2_bench_run_idct(void)
         }
       }
 
-  for (v = 0; v < 3; v++)
+  for (v = 0; v < 4; v++)
     if (valid[v])
       printf("PASS,idct,%s,correctness,2048_cases\n", names[v]);
 
   for (profile = 0; profile < 4; profile++)
     for (alignment = 0; alignment < 4; alignment++) {
       idct_case ctx;
-      idct_call contexts[3];
-      ps2_bench_variant entries[4];
+      idct_call contexts[4];
+      ps2_bench_variant entries[5];
       unsigned n = 0;
       prepare_case(&ctx, profile, 117, (int)alignment);
 
@@ -244,7 +247,7 @@ ps2_bench_run_idct(void)
       entries[n].reset = reset_idct_scalar;
       n++;
 
-      for (v = 0; v < 3; v++) {
+      for (v = 0; v < 4; v++) {
         if (!valid[v])
           continue;
         contexts[v].fn = kernels[v];
