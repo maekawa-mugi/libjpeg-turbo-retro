@@ -38,6 +38,8 @@ required=(
   ps2_bench_regpack_rgbx
   ps2_bench_idct_batch
   ps2_bench_idct_direct
+  ps2_bench_idct_lut
+  ps2_bench_idct_lut_norow
   ps2_bench_idct_evenoff
   ps2_bench_idct_evenon
   jsimd_quantize_ps2mmi
