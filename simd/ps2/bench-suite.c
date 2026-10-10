@@ -16,7 +16,7 @@ extern int ps2_test_printf(const char *, ...);
 extern void ps2_ui_bench_progress(const char *, const char *, unsigned);
 extern void ps2_ui_bench_result(unsigned, const char *, const char *, unsigned, int);
 
-#define MAX_TIMINGS 512
+#define MAX_TIMINGS 640 /* 516 exact + 16 FPU + 4 novelty rows */
 static struct {
   char category[20], variant[20], workload[32];
   unsigned width;
@@ -206,7 +206,8 @@ void
 ps2_bench_one_shot_verdict(int valid)
 {
   static const char *const exact_names[] = {
-    "ijg_c", "evenoff", "evenon", "batch", "direct"
+    "ijg_c", "evenoff", "evenon", "batch", "direct",
+    "lut", "lut_norow"
   };
   uint64_t ijg, best_cost, candidate;
   const char *best_name = "N/A";
