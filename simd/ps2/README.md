@@ -175,7 +175,7 @@ plus validates unchanged output guards.  A modified output guard suppresses FPU 
 prints a quality warning but still permits experiment-only timing. Exact
 integer contenders retain byte-exact output.
 Without this flag, neither the decoder default nor FPU benchmark is changed.
-New one-ELF matrix: 536 timing rows without FPU, 552 with guarded FPU.
+New one-ELF matrix: 520 timing rows without FPU, 536 with guarded FPU.
 Run `python3 simd/ps2/analyze-bench.py <console-log>` for completeness and
 relative performance.  PCSX2/real-hardware measurements are still required.
 
