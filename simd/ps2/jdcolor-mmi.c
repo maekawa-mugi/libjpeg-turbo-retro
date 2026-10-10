@@ -16,6 +16,10 @@
 #include <stdint.h>
 #include <string.h>
 
+#if defined(PS2_EXPERIMENTAL_COLOR_TABLE)
+#include "color-table-mmi.h"
+#endif
+
 static const short clamp255[8] __attribute__((aligned(16))) =
   { 255, 255, 255, 255, 255, 255, 255, 255 };
 
@@ -25,11 +29,19 @@ static const short clamp255[8] __attribute__((aligned(16))) =
 static INLINE void
 convert_pixel(int y, int cb, int cr, short *r, short *g, short *b)
 {
+#if defined(PS2_EXPERIMENTAL_COLOR_TABLE)
+  int dr, dg, db;
+  ps2_table_chroma_offsets((unsigned)cb, (unsigned)cr, &dr, &dg, &db);
+  *r = (short)(y + dr);
+  *g = (short)(y + dg);
+  *b = (short)(y + db);
+#else
   cb -= 128;
   cr -= 128;
   *r = (short)(y + ((91881 * cr + 32768) >> 16));
   *g = (short)(y + ((-22554 * cb - 46802 * cr + 32768) >> 16));
   *b = (short)(y + ((116130 * cb + 32768) >> 16));
+#endif
 }
 
 
