@@ -104,6 +104,11 @@ trap - EXIT
 # generator. Never touch unrelated ELF files or directories.
 find "$root" -maxdepth 1 -type f -name 'libjpeg_turbo_mmi_even*.elf' -delete
 rm -f "$root/ps2-elf-manifest.csv"
+# Remove only the old matrix builder's dedicated intermediate directory.
+# Keep build-ps2/one-elf so subsequent incremental builds stay fast.
+if [[ -d "$root/build-ps2/profiles" ]]; then
+  rm -rf -- "$root/build-ps2/profiles"
+fi
 echo "READY: $published"
 echo "One boot covers all exact and approximate contenders."
 echo "GS screen: one-shot verdict; console: detailed CSV and accuracy gates."
