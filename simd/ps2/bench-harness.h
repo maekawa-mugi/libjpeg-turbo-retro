@@ -59,6 +59,8 @@ extern void ps2_bench_idct_evenon(ISLOW_MULT_TYPE *, JCOEFPTR,
 
 extern void ps2_bench_idct_batch(ISLOW_MULT_TYPE *, JCOEFPTR,
                                   JSAMPARRAY, JDIMENSION);
+extern void ps2_bench_idct_direct(ISLOW_MULT_TYPE *, JCOEFPTR,
+                                    JSAMPARRAY, JDIMENSION);
 extern void jsimd_quantize_legacy_ps2mmi(JCOEFPTR, DCTELEM *, DCTELEM *);
 
 /* Each implementation gets its own output target/context. */
