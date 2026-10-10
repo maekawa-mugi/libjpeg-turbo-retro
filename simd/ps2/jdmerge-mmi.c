@@ -14,17 +14,25 @@
 #include <stdint.h>
 #include <string.h>
 
+#if defined(PS2_EXPERIMENTAL_MERGED_TABLE)
+#include "color-table-mmi.h"
+#endif
+
 static const short clamp255[8] __attribute__((aligned(16))) =
   { 255, 255, 255, 255, 255, 255, 255, 255 };
 
 static INLINE void
 chroma_offsets(int cb, int cr, int *r, int *g, int *b)
 {
+#if defined(PS2_EXPERIMENTAL_MERGED_TABLE)
+  ps2_table_chroma_offsets((unsigned)cb, (unsigned)cr, r, g, b);
+#else
   cb -= 128;
   cr -= 128;
   *r = (91881 * cr + 32768) >> 16;
   *g = (-22554 * cb - 46802 * cr + 32768) >> 16;
   *b = (116130 * cb + 32768) >> 16;
+#endif
 }
 
 /*
