@@ -28,6 +28,7 @@ cat >"$tmp/kernel.h" <<'EOF'
 #ifndef PS2_BENCH_FAKE_KERNEL_H
 #define PS2_BENCH_FAKE_KERNEL_H
 void SleepThread(void);
+void SyncDCache(void *, void *);
 #endif
 EOF
 files=(
@@ -48,6 +49,10 @@ done
 "$cc" -std=c99 -Wall -Wextra -Werror -fsyntax-only \
   -DPS2_BENCH_HOST_CHECK -DPS2_APPROX_FPU_IDCT \
   -I"$tmp" simd/ps2/bench-idct.c
+"$cc" -std=c99 -Wall -Wextra -Werror -fsyntax-only \
+  -DPS2_BENCH_HOST_CHECK -DPS2_EXPERIMENTAL_VU0=1 \
+  -DPS2_EXPERIMENTAL_VIF0_DMA=1 -I"$tmp" \
+  simd/ps2/bench-vu-experiment.c
 "$cc" -std=c99 -Wall -Wextra -Werror -fsyntax-only \
   -DPS2_MMI_ALL_IN_ONE -I"$tmp" simd/ps2/test-suite.c
 bash -n simd/ps2/build-test-elf.sh
