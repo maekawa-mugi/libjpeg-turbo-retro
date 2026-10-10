@@ -191,6 +191,15 @@ relative100(uint64_t base, uint64_t candidate)
   return (unsigned)(base * 100u / candidate);
 }
 
+static void
+verdict_line(int y, unsigned color, const char *message)
+{
+  scr_setXY(0, y);
+  scr_setfontcolor(color);
+  /* Fixed screen-cell limit: never wrap onto the test/benchmark table. */
+  scr_printf("%-62.62s", message);
+}
+
 void
 ps2_bench_one_shot_verdict(int valid)
 {
@@ -201,15 +210,13 @@ ps2_bench_one_shot_verdict(int valid)
   const char *best_name = "N/A";
   unsigned i, exact_ratio, fpu_ratio = 0, vu_ratio = 0, dma_ratio = 0;
   const char *choice;
+  char text[96];
+
   if (!valid) {
     ps2_test_printf("CONCLUSION,INVALID,fix_correctness_or_benchmark_first\n");
-    scr_setXY(0,1);
-    scr_setfontcolor(0x000000ffu);
-    scr_printf("VERDICT: INVALID - check failing test or benchmark          ");
-    scr_setXY(0,2);
-    scr_printf("Detailed FAIL lines are on stdout                            ");
-    scr_setXY(0,13);
-    scr_printf("NO SPEED RECOMMENDATION UNTIL ALL CHECKS PASS                 ");
+    verdict_line(1, 0x000000ffu, "VERDICT INVALID: check failed test or benchmark");
+    verdict_line(2, 0x000000ffu, "Full failure details: console stdout");
+    verdict_line(13, 0x000000ffu, "DO NOT USE PERFORMANCE RESULTS UNTIL ALL CHECKS PASS");
     return;
   }
 
@@ -228,7 +235,6 @@ ps2_bench_one_shot_verdict(int valid)
                                           "dense", 8));
   }
   exact_ratio = relative100(ijg, best_cost);
-
 #ifdef PS2_EXPERIMENTAL_VU0
   if (passed_groups & (1u << 5))
     vu_ratio = relative100(find_cost("vu_idct", "scalar_matrix",
@@ -242,47 +248,47 @@ ps2_bench_one_shot_verdict(int valid)
                             find_cost("vif0_dma", "vif0_dma",
                                       "upload256", 256));
 #endif
-
   if (!exact_ratio) {
     ps2_test_printf("CONCLUSION,INVALID,missing_exact_IDCT_reference\n");
-    scr_setXY(0,1);
-    scr_printf("VERDICT: INCOMPLETE IDCT BENCHMARK                           ");
+    verdict_line(1, 0x000000ffu, "VERDICT INCOMPLETE: missing exact IDCT reference");
+    verdict_line(13, 0x000000ffu, "DO NOT USE PERFORMANCE RESULTS");
     return;
   }
 
-  scr_setXY(0,1);
-  scr_setfontcolor(0x0000ff00u);
   if (fpu_ratio)
-    scr_printf("EXACT IDCT %-8s %u.%02ux | FPU~ %u.%02ux                  ",
-               best_name, exact_ratio / 100, exact_ratio % 100,
-               fpu_ratio / 100, fpu_ratio % 100);
+    snprintf(text, sizeof(text),
+             "EXACT IDCT: %-7s %u.%02ux | FPU~: %u.%02ux",
+             best_name, exact_ratio / 100, exact_ratio % 100,
+             fpu_ratio / 100, fpu_ratio % 100);
   else
-    scr_printf("EXACT IDCT %-8s %u.%02ux | FPU~ not qualified             ",
-               best_name, exact_ratio / 100, exact_ratio % 100);
-  scr_setXY(0,2);
-  scr_setfontcolor(0x00ffffffu);
+    snprintf(text, sizeof(text),
+             "EXACT IDCT: %-7s %u.%02ux | FPU~: N/A (quality)",
+             best_name, exact_ratio / 100, exact_ratio % 100);
+  verdict_line(1, 0x0000ff00u, text);
   if (vu_ratio && dma_ratio)
-    scr_printf("VU0/float %u.%02ux | DMA/upload %u.%02ux (NOT JPEG IDCT)   ",
-               vu_ratio / 100, vu_ratio % 100,
-               dma_ratio / 100, dma_ratio % 100);
+    snprintf(text, sizeof(text),
+             "VU0 vs float: %u.%02ux | DMA vs CPU upload: %u.%02ux",
+             vu_ratio / 100, vu_ratio % 100,
+             dma_ratio / 100, dma_ratio % 100);
   else
-    scr_printf("VU0/float: %s | DMA/upload: %s (see stdout)               ",
-               vu_ratio ? "MEASURED" : "N/A",
-               dma_ratio ? "MEASURED" : "N/A");
+    snprintf(text, sizeof(text),
+             "VU0 vs float: %s | DMA vs upload: %s",
+             vu_ratio ? "measured" : "N/A",
+             dma_ratio ? "measured" : "N/A");
+  verdict_line(2, 0x00ffffffu, text);
 
-  /* Make the actionable conclusion stand out above the GS table.
-   * A 5% minimum advantage is a heuristic for the representative
-   * sample ONLY, never an automatic dispatch change.
-   */
+  /* A 5% advantage on this dense sample is only a heuristic.
+   * Do NOT enable approximation or DMA in production from this score. */
   choice = exact_ratio >= 105 ? best_name : "ijg_c";
-  scr_setXY(0,13);
-  scr_setfontcolor(0x0000ffffu);
   if (dma_ratio && dma_ratio < 100)
-    scr_printf("TAKEAWAY: exact %-8s | VU0 float only; avoid DMA        ",
-               choice);
+    snprintf(text, sizeof(text),
+             "TAKEAWAY: exact %-7s; VU0 experimental; skip DMA",
+             choice);
   else
-    scr_printf("TAKEAWAY: exact %-8s | experiments need verification   ",
-               choice);
+    snprintf(text, sizeof(text),
+             "TAKEAWAY: exact %-7s; verify experiments on EE",
+             choice);
+  verdict_line(13, 0x0000ffffu, text);
 
   ps2_test_printf(
     "CONCLUSION,exact_idct,%s,baseline_ijg_c,speed=%u.%02ux\n",
