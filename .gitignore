@@ -1,2 +1,5 @@
 /build-ps2/
 /build-ps2-sdk/
+# Verified PS2 EE ELFs and the generated profile/checksum manifest.
+/libjpeg_turbo_mmi*.elf
+/ps2-elf-manifest.csv
