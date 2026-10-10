@@ -617,6 +617,19 @@ option(WITH_PS2_EXPERIMENTAL_IDCT_EVEN
   "Enable experimental 3-of-8-lane PS2 MMI IDCT even-part rotator (benchmark separately)"
   OFF)
 
+# Opt-in, non-bit-exact decoder default.  Uses the existing IJG AA&N
+# floating-point inverse DCT on the native R5900 COP1 FPU.  This is NOT
+# a floating point substitute for the bit-exact integer IDCT benchmarks.
+option(WITH_PS2_APPROX_FPU_IDCT
+  "Default JPEG decoding to native PS2 single-precision floating IDCT (not IJG bit-exact)"
+  OFF)
+if(WITH_PS2_APPROX_FPU_IDCT)
+  set(PS2_APPROX_FPU_IDCT 1)
+  message(WARNING
+    "PS2 native FPU IDCT enabled: JPEG decoding may differ by one or more pixels; "
+    "the EE FPU is not fully IEEE-754 conforming")
+endif()
+
 add_library(simd OBJECT ps2/jsimdcpu.c ps2/jdsample-mmi.c
   ps2/jdsample-fancy-mmi.c ps2/jcsample-mmi.c
   ps2/jidctint-mmi.c ps2/jdcolor-mmi.c ps2/jdmerge-mmi.c
