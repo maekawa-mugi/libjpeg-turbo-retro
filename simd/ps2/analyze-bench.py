@@ -3,7 +3,7 @@
 
 Timing method is adapted from openssl-retro/test/ps2/main.c: correctness
 first, rotated execution orders, median per variant and output digest
-after each timed batch.  This parser accepts ONLY complete 9/9 sessions,
+after each timed batch.  This parser accepts ONLY complete 8/8 sessions,
 with all variants on the same input matrix, before recommending a winner.
 
 Example: python3 simd/ps2/analyze-bench.py ps2-console.log
@@ -17,14 +17,16 @@ import sys
 
 VARIANTS = {
     "merged": ("portable_c", "scalar", "pmul4", "pmul8",
-               "addpack", "vector"),
-    "color": ("portable_c", "scalar", "pmul4", "pmul8", "regpack"),
+               "addpack", "vector", "table"),
+    "color": ("portable_c", "scalar", "pmul4", "pmul8", "regpack", "table"),
     "plain_up": ("portable_c", "mmi"),
     "fancy_up": ("portable_c", "mmi"),
     "downsample": ("portable_c", "mmi"),
-    "idct": ("ijg_c", "evenoff", "evenon", "batch"),
+    "idct": ("ijg_c", "evenoff", "evenon", "batch", "direct"),
     "quantize": ("ijg_c", "mmi", "regpipe"),
 }
+OPTIONAL_VARIANTS = {"idct": ("fpu_approx",)}
+
 CASE_COUNT = {
     "merged": 32,
     "color": 16,
@@ -52,7 +54,8 @@ def parse_lines(lines):
             match = re.search(r"BENCH_END,failures=(\d+)", line)
             if not match or int(match.group(1)):
                 failures.append("BENCH_END reports errors")
-        if "TEST: OK! (9/9 groups passed)" in line:
+        if ("TEST: OK! (9/9 groups passed)" in line or
+                re.search(r"LIBJPEG_PS2,DONE,PASS,tests=8,passed=8,bench_failures=0", line)):
             overall_ok = True
         if "TEST: FAIL!" in line or re.search(r"\b(?:FAIL|SKIP),", line):
             failures.append(f"line {line_number}: {line.strip()[:160]}")
@@ -64,7 +67,8 @@ def parse_lines(lines):
             failures.append(f"line {line_number}: expected 8 CSV fields")
             continue
         cat, variant, workload = fields[:3]
-        if cat not in VARIANTS or variant not in VARIANTS[cat]:
+        if (cat not in VARIANTS or
+                variant not in VARIANTS[cat] + OPTIONAL_VARIANTS.get(cat, ())):
             failures.append(f"line {line_number}: unexpected variant {cat}/{variant}")
             continue
         try:
@@ -86,14 +90,20 @@ def parse_lines(lines):
     if not ended:
         failures.append("Missing BENCH_END")
     if not overall_ok:
-        failures.append("Missing TEST: OK! (9/9 groups passed)")
+        failures.append("Missing complete 8/8 PASS (or legacy 9/9 PASS)")
     return rows, failures
 
 
 def inspect_matrix(rows):
     failures = []
     ratios = collections.defaultdict(list)
-    for category, variants in VARIANTS.items():
+    for category, required in VARIANTS.items():
+        optional = tuple(
+            v for v in OPTIONAL_VARIANTS.get(category, ())
+            if any(cat == category and variant == v
+                   for cat, variant, _, _, _ in rows)
+        )
+        variants = required + optional
         data = {
             variant: {
                 (workload, width, alignment): cost
@@ -122,7 +132,11 @@ def inspect_matrix(rows):
 
 def verdicts(ratios, min_geomean=1.05, min_worst=0.95):
     summary = {}
-    for category, variants in VARIANTS.items():
+    for category, required in VARIANTS.items():
+        variants = required + tuple(
+            v for v in OPTIONAL_VARIANTS.get(category, ())
+            if len(ratios[(category, v)]) == CASE_COUNT[category]
+        )
         contenders = []
         for variant in variants[1:]:
             samples = ratios[(category, variant)]
@@ -156,9 +170,13 @@ def main(argv=None):
     print("PS2 EE JPEG MMI A/B verdict report")
     print("Timer: PS2SDK GetTimerSystemTime(), balanced order, even median")
     print("Reference is a true portable C implementation for color/merged.")
-    print("Timing rows:", len(rows), "expected:", sum(
-        CASE_COUNT[k] * len(VARIANTS[k]) for k in VARIANTS
-    ))
+    expected = sum(CASE_COUNT[k] * len(VARIANTS[k]) for k in VARIANTS)
+    expected += sum(
+        CASE_COUNT[k] for k, optional in OPTIONAL_VARIANTS.items()
+        for v in optional
+        if any(cat == k and variant == v for cat, variant, _, _, _ in rows)
+    )
+    print("Timing rows:", len(rows), "expected:", expected)
     print()
     for category, variants in VARIANTS.items():
         print(f"[{category}] baseline={variants[0]}")
@@ -181,7 +199,7 @@ def main(argv=None):
         for item in sorted(set(failures)):
             print("  " + item, file=sys.stderr)
         return 2
-    print("PASS: complete 9/9 correctness and full A/B timing matrix.")
+    print("PASS: complete 8/8 correctness and full A/B timing matrix.")
     print("Candidate status is provisional until repeated on real PS2 hardware.")
     return 0
 
