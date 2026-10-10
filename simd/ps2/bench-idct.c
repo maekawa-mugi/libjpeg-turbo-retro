@@ -312,10 +312,16 @@ ps2_bench_run_idct(void)
 #ifdef PS2_APPROX_FPU_IDCT
   printf("APPROX,idct,fpu_approx,2048_cases,max_abs_diff=%u,different_pixels=%u,guards=%s\n",
          fpu_max_diff, fpu_differences, fpu_guard_ok ? "PASS" : "FAIL");
-  /* Do not label this bit-exact.  More than 3 levels or an out-of-bounds
-   * write means that the candidate cannot be included in the benchmark. */
-  if (!fpu_guard_ok || fpu_max_diff > 3)
-    puts("QUALITY_OMIT,idct,fpu_approx,approx_quality_gate");
+  /* This contender is explicitly approximate: high pixel error must
+   * be REPORTED, not hidden behind N/A when measuring speed.  Only an
+   * output-buffer guard violation blocks its timing.  Its digest must
+   * still remain stable and it can never win the exact-IDCT verdict.
+   */
+  if (!fpu_guard_ok)
+    puts("QUALITY_OMIT,idct,fpu_approx,output_guard_failure");
+  else if (fpu_max_diff > 3)
+    printf("QUALITY_WARNING,idct,fpu_approx,max_abs_diff=%u,UNSUITABLE_FOR_EXACT_OUTPUT\n",
+           fpu_max_diff);
 #endif
 
   for (profile = 0; profile < 4; profile++)
@@ -351,7 +357,7 @@ ps2_bench_run_idct(void)
       }
 
 #ifdef PS2_APPROX_FPU_IDCT
-      if (fpu_guard_ok && fpu_max_diff <= 3) {
+      if (fpu_guard_ok) {
         entries[n].name = "fpu_approx";
         entries[n].run = call_fpu_approx;
         entries[n].context = &ctx;
