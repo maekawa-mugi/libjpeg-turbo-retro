@@ -20,6 +20,7 @@
 #include <kernel.h>
 #endif
 
+#if defined(PS2_EXPERIMENTAL_VU0)
 static const float idct_basis[8][8] = {
   { 0.35355339059f, 0.49039264020f, 0.46193976626f, 0.41573480615f, 0.35355339059f, 0.27778511651f, 0.19134171618f, 0.09754516101f },
   { 0.35355339059f, 0.41573480615f, 0.19134171618f, -0.09754516101f, -0.35355339059f, -0.49039264020f, -0.46193976626f, -0.27778511651f },
@@ -145,35 +146,35 @@ vu_dot8(const float *in, const float *weights, float *out)
     "lqc2 $vf1, 0(%0)\n\t"
     "lqc2 $vf2, 0(%1)\n\t"
     "vmul.xyzw $vf4, $vf1, $vf2\n\t"
-    "vmove.xyzw $vf3, $vf4\n\t" 
+    "vmove.xyzw $vf3, $vf4\n\t"
     "lqc2 $vf1, 16(%0)\n\t"
     "lqc2 $vf2, 16(%1)\n\t"
     "vmul.xyzw $vf4, $vf1, $vf2\n\t"
-    "vadd.xyzw $vf3, $vf3, $vf4\n\t" 
+    "vadd.xyzw $vf3, $vf3, $vf4\n\t"
     "lqc2 $vf1, 32(%0)\n\t"
     "lqc2 $vf2, 32(%1)\n\t"
     "vmul.xyzw $vf4, $vf1, $vf2\n\t"
-    "vadd.xyzw $vf3, $vf3, $vf4\n\t" 
+    "vadd.xyzw $vf3, $vf3, $vf4\n\t"
     "lqc2 $vf1, 48(%0)\n\t"
     "lqc2 $vf2, 48(%1)\n\t"
     "vmul.xyzw $vf4, $vf1, $vf2\n\t"
-    "vadd.xyzw $vf3, $vf3, $vf4\n\t" 
+    "vadd.xyzw $vf3, $vf3, $vf4\n\t"
     "lqc2 $vf1, 64(%0)\n\t"
     "lqc2 $vf2, 64(%1)\n\t"
     "vmul.xyzw $vf4, $vf1, $vf2\n\t"
-    "vadd.xyzw $vf3, $vf3, $vf4\n\t" 
+    "vadd.xyzw $vf3, $vf3, $vf4\n\t"
     "lqc2 $vf1, 80(%0)\n\t"
     "lqc2 $vf2, 80(%1)\n\t"
     "vmul.xyzw $vf4, $vf1, $vf2\n\t"
-    "vadd.xyzw $vf3, $vf3, $vf4\n\t" 
+    "vadd.xyzw $vf3, $vf3, $vf4\n\t"
     "lqc2 $vf1, 96(%0)\n\t"
     "lqc2 $vf2, 96(%1)\n\t"
     "vmul.xyzw $vf4, $vf1, $vf2\n\t"
-    "vadd.xyzw $vf3, $vf3, $vf4\n\t" 
+    "vadd.xyzw $vf3, $vf3, $vf4\n\t"
     "lqc2 $vf1, 112(%0)\n\t"
     "lqc2 $vf2, 112(%1)\n\t"
     "vmul.xyzw $vf4, $vf1, $vf2\n\t"
-    "vadd.xyzw $vf3, $vf3, $vf4\n\t" 
+    "vadd.xyzw $vf3, $vf3, $vf4\n\t"
     "vnop\n\t"
     "vnop\n\t"
     "sqc2 $vf3, 0(%2)\n\t"
@@ -271,6 +272,8 @@ ps2_bench_run_vu0(void)
                                        entries, 2, 64);
 }
 #endif
+
+#endif /* PS2_EXPERIMENTAL_VU0 */
 
 #if defined(PS2_EXPERIMENTAL_VIF0_DMA)
 /* VIF0 UNPACK V4_32 stream: STCYCL(1,1) QW, UNPACK 16 QW to VU0
