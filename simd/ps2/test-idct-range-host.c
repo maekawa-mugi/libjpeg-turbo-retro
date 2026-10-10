@@ -8,6 +8,7 @@
 #include <string.h>
 typedef uint8_t JSAMPLE;
 #include "idct-range-lut.h"
+#include "bench-idct-range.h"
 
 static unsigned
 idct_clip(unsigned i)
@@ -21,10 +22,7 @@ int main(void)
   JSAMPLE *base = table + 256;
   unsigned i;
   memset(table, 0xc9, sizeof(table));
-  for (i = 0; i < 1024; ++i)
-    base[128 + i] = (JSAMPLE)idct_clip(i);
-  for (i = 0; i < 128; ++i)
-    base[i] = (JSAMPLE)i;
+  ps2_bench_init_idct_range(table);
   for (i = 0; i < 1024; ++i) {
     unsigned wanted = idct_clip(i);
     if (ps2_idct_lut[i] != wanted || base[128 + i] != wanted) {
