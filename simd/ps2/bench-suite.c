@@ -7,6 +7,7 @@
  * SPDX-License-Identifier: Zlib
  */
 #include "bench-harness.h"
+#include <debug.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
