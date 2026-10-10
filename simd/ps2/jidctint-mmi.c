@@ -357,6 +357,20 @@ ps2_dequant_block(const JCOEF *coef, const ISLOW_MULT_TYPE *quant,
   }
 }
 
+/* With PS2_IDCT_DIRECT, only multiply coefficients actually needed in
+ * non-zero columns.  Avoid the eight PMULTH call/HI-LO/store round trips,
+ * the 256-byte dequant array, and zero-coefficient multiplies.
+ * Full fixed-point range, IJG rounding, and DC shortcut are retained.
+ * This is a separately benchmarked contender, not a dispatch change.
+ */
+#if defined(PS2_IDCT_DIRECT)
+#define PS2_DEQUANT_AT(i) \
+  ((JLONG)((ISLOW_MULT_TYPE)coef_block[(i)]) * \
+   ((ISLOW_MULT_TYPE *)dct_table)[(i)])
+#else
+#define PS2_DEQUANT_AT(i) dequant[(i)]
+#endif
+
 /*
  * IJG reference LL&M transform (unaltered fixed-point constants, shifts,
  * and 8-bit limiting, except for the MMI DC-only early exit).
@@ -370,7 +384,9 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
   JLONG tmp10, tmp11, tmp12, tmp13;
   JLONG z1, z2, z3, z4, z5;
   JCOEFPTR inptr;
+#if !defined(PS2_IDCT_DIRECT)
   JLONG dequant[DCTSIZE2] __attribute__((aligned(16)));
+#endif
   int *wsptr;
   JSAMPROW outptr;
   /* Range mapping below is the exact IJG post-IDCT 10-bit wrap table. */
@@ -400,7 +416,9 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
   /* furthermore, we scale the results by 2**PASS1_BITS. */
 
   inptr = coef_block;
+#if !defined(PS2_IDCT_DIRECT)
   ps2_dequant_block(coef_block, (ISLOW_MULT_TYPE *)dct_table, dequant);
+#endif
   wsptr = workspace;
   for (ctr = DCTSIZE; ctr > 0; ctr--) {
     /* Due to quantization, we will usually find that many of the input
@@ -417,7 +435,7 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
         inptr[DCTSIZE * 5] == 0 && inptr[DCTSIZE * 6] == 0 &&
         inptr[DCTSIZE * 7] == 0) {
       /* AC terms all zero */
-      int dcval = LEFT_SHIFT(dequant[DCTSIZE * 0 + (int)(inptr - coef_block)], PASS1_BITS);
+      int dcval = LEFT_SHIFT(PS2_DEQUANT_AT(DCTSIZE * 0 + (int)(inptr - coef_block)), PASS1_BITS);
 
       wsptr[DCTSIZE * 0] = dcval;
       wsptr[DCTSIZE * 1] = dcval;
@@ -436,9 +454,14 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
     /* Even part: reverse the even part of the forward DCT. */
     /* The rotator is sqrt(2)*c(-6). */
 
-    z2 = dequant[DCTSIZE * 2 + (int)(inptr - coef_block)];
-    z3 = dequant[DCTSIZE * 6 + (int)(inptr - coef_block)];
+    z2 = PS2_DEQUANT_AT(DCTSIZE * 2 + (int)(inptr - coef_block));
+    z3 = PS2_DEQUANT_AT(DCTSIZE * 6 + (int)(inptr - coef_block));
 
+#if defined(PS2_IDCT_DIRECT)
+    z1 = MULTIPLY(z2 + z3, FIX_0_541196100);
+    tmp2 = z1 + MULTIPLY(z3, -FIX_1_847759065);
+    tmp3 = z1 + MULTIPLY(z2, FIX_0_765366865);
+#else
     {
       JLONG products[3];
 
@@ -447,9 +470,10 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
       tmp2 = z1 + products[1];
       tmp3 = z1 + products[2];
     }
+#endif
 
-    z2 = dequant[DCTSIZE * 0 + (int)(inptr - coef_block)];
-    z3 = dequant[DCTSIZE * 4 + (int)(inptr - coef_block)];
+    z2 = PS2_DEQUANT_AT(DCTSIZE * 0 + (int)(inptr - coef_block));
+    z3 = PS2_DEQUANT_AT(DCTSIZE * 4 + (int)(inptr - coef_block));
 
     tmp0 = LEFT_SHIFT(z2 + z3, CONST_BITS);
     tmp1 = LEFT_SHIFT(z2 - z3, CONST_BITS);
@@ -463,10 +487,10 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
      * transpose is its inverse.  i0..i3 are y7,y5,y3,y1 respectively.
      */
 
-    tmp0 = dequant[DCTSIZE * 7 + (int)(inptr - coef_block)];
-    tmp1 = dequant[DCTSIZE * 5 + (int)(inptr - coef_block)];
-    tmp2 = dequant[DCTSIZE * 3 + (int)(inptr - coef_block)];
-    tmp3 = dequant[DCTSIZE * 1 + (int)(inptr - coef_block)];
+    tmp0 = PS2_DEQUANT_AT(DCTSIZE * 7 + (int)(inptr - coef_block));
+    tmp1 = PS2_DEQUANT_AT(DCTSIZE * 5 + (int)(inptr - coef_block));
+    tmp2 = PS2_DEQUANT_AT(DCTSIZE * 3 + (int)(inptr - coef_block));
+    tmp3 = PS2_DEQUANT_AT(DCTSIZE * 1 + (int)(inptr - coef_block));
 
     z1 = tmp0 + tmp3;
     z2 = tmp1 + tmp2;
@@ -474,6 +498,16 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
     z4 = tmp1 + tmp3;
     z5 = MULTIPLY(z3 + z4, FIX_1_175875602); /* sqrt(2) * c3 */
 
+#if defined(PS2_IDCT_DIRECT)
+    tmp0 = MULTIPLY(tmp0, FIX_0_298631336);
+    tmp1 = MULTIPLY(tmp1, FIX_2_053119869);
+    tmp2 = MULTIPLY(tmp2, FIX_3_072711026);
+    tmp3 = MULTIPLY(tmp3, FIX_1_501321110);
+    z1 = MULTIPLY(z1, -FIX_0_899976223);
+    z2 = MULTIPLY(z2, -FIX_2_562915447);
+    z3 = MULTIPLY(z3, -FIX_1_961570560);
+    z4 = MULTIPLY(z4, -FIX_0_390180644);
+#else
     {
       JLONG odd_terms[8] = { tmp0, tmp1, tmp2, tmp3, z1, z2, z3, z4 };
       JLONG odd_products[8];
@@ -488,6 +522,7 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
       z3 = odd_products[6];
       z4 = odd_products[7];
     }
+#endif
 
     z3 += z5;
     z4 += z5;
@@ -499,6 +534,16 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
 
     /* Final output stage: inputs are tmp10..tmp13, tmp0..tmp3 */
 
+#if defined(PS2_IDCT_DIRECT)
+    wsptr[DCTSIZE * 0] = (int)DESCALE(tmp10 + tmp3, CONST_BITS - PASS1_BITS);
+    wsptr[DCTSIZE * 7] = (int)DESCALE(tmp10 - tmp3, CONST_BITS - PASS1_BITS);
+    wsptr[DCTSIZE * 1] = (int)DESCALE(tmp11 + tmp2, CONST_BITS - PASS1_BITS);
+    wsptr[DCTSIZE * 6] = (int)DESCALE(tmp11 - tmp2, CONST_BITS - PASS1_BITS);
+    wsptr[DCTSIZE * 2] = (int)DESCALE(tmp12 + tmp1, CONST_BITS - PASS1_BITS);
+    wsptr[DCTSIZE * 5] = (int)DESCALE(tmp12 - tmp1, CONST_BITS - PASS1_BITS);
+    wsptr[DCTSIZE * 3] = (int)DESCALE(tmp13 + tmp0, CONST_BITS - PASS1_BITS);
+    wsptr[DCTSIZE * 4] = (int)DESCALE(tmp13 - tmp0, CONST_BITS - PASS1_BITS);
+#else
     {
       JLONG aa[4] __attribute__((aligned(16))) =
         { tmp10, tmp11, tmp12, tmp13 };
@@ -514,6 +559,7 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
         wsptr[DCTSIZE * (7 - k)] = (int)diff[k];
       }
     }
+#endif
 
     inptr++;                    /* advance pointers to next column */
     wsptr++;
@@ -561,6 +607,11 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
     z2 = (JLONG)wsptr[2];
     z3 = (JLONG)wsptr[6];
 
+#if defined(PS2_IDCT_DIRECT)
+    z1 = MULTIPLY(z2 + z3, FIX_0_541196100);
+    tmp2 = z1 + MULTIPLY(z3, -FIX_1_847759065);
+    tmp3 = z1 + MULTIPLY(z2, FIX_0_765366865);
+#else
     {
       JLONG products[3];
 
@@ -569,6 +620,7 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
       tmp2 = z1 + products[1];
       tmp3 = z1 + products[2];
     }
+#endif
 
     tmp0 = LEFT_SHIFT((JLONG)wsptr[0] + (JLONG)wsptr[4], CONST_BITS);
     tmp1 = LEFT_SHIFT((JLONG)wsptr[0] - (JLONG)wsptr[4], CONST_BITS);
@@ -593,6 +645,16 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
     z4 = tmp1 + tmp3;
     z5 = MULTIPLY(z3 + z4, FIX_1_175875602); /* sqrt(2) * c3 */
 
+#if defined(PS2_IDCT_DIRECT)
+    tmp0 = MULTIPLY(tmp0, FIX_0_298631336);
+    tmp1 = MULTIPLY(tmp1, FIX_2_053119869);
+    tmp2 = MULTIPLY(tmp2, FIX_3_072711026);
+    tmp3 = MULTIPLY(tmp3, FIX_1_501321110);
+    z1 = MULTIPLY(z1, -FIX_0_899976223);
+    z2 = MULTIPLY(z2, -FIX_2_562915447);
+    z3 = MULTIPLY(z3, -FIX_1_961570560);
+    z4 = MULTIPLY(z4, -FIX_0_390180644);
+#else
     {
       JLONG odd_terms[8] = { tmp0, tmp1, tmp2, tmp3, z1, z2, z3, z4 };
       JLONG odd_products[8];
@@ -607,6 +669,7 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
       z3 = odd_products[6];
       z4 = odd_products[7];
     }
+#endif
 
     z3 += z5;
     z4 += z5;
@@ -618,6 +681,16 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
 
     /* Final output stage: inputs are tmp10..tmp13, tmp0..tmp3 */
 
+#if defined(PS2_IDCT_DIRECT)
+    outptr[0] = ps2_idct_range((int)DESCALE(tmp10 + tmp3, CONST_BITS + PASS1_BITS + 3) & RANGE_MASK);
+    outptr[7] = ps2_idct_range((int)DESCALE(tmp10 - tmp3, CONST_BITS + PASS1_BITS + 3) & RANGE_MASK);
+    outptr[1] = ps2_idct_range((int)DESCALE(tmp11 + tmp2, CONST_BITS + PASS1_BITS + 3) & RANGE_MASK);
+    outptr[6] = ps2_idct_range((int)DESCALE(tmp11 - tmp2, CONST_BITS + PASS1_BITS + 3) & RANGE_MASK);
+    outptr[2] = ps2_idct_range((int)DESCALE(tmp12 + tmp1, CONST_BITS + PASS1_BITS + 3) & RANGE_MASK);
+    outptr[5] = ps2_idct_range((int)DESCALE(tmp12 - tmp1, CONST_BITS + PASS1_BITS + 3) & RANGE_MASK);
+    outptr[3] = ps2_idct_range((int)DESCALE(tmp13 + tmp0, CONST_BITS + PASS1_BITS + 3) & RANGE_MASK);
+    outptr[4] = ps2_idct_range((int)DESCALE(tmp13 - tmp0, CONST_BITS + PASS1_BITS + 3) & RANGE_MASK);
+#else
     {
       JLONG aa[4] __attribute__((aligned(16))) =
         { tmp10, tmp11, tmp12, tmp13 };
@@ -633,7 +706,10 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
         outptr[7 - k] = ps2_idct_range((int)diff[k] & RANGE_MASK);
       }
     }
+#endif
 
     wsptr += DCTSIZE;           /* advance pointer to next row */
   }
 }
+
+#undef PS2_DEQUANT_AT
