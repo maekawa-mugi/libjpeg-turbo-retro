@@ -145,10 +145,9 @@ def inspect_matrix(rows):
 def verdicts(ratios, min_geomean=1.05, min_worst=0.95):
     summary = {}
     for category, required in VARIANTS.items():
-        variants = required + tuple(
-            v for v in OPTIONAL_VARIANTS.get(category, ())
-            if len(ratios[(category, v)]) == CASE_COUNT[category]
-        )
+        # The native-FPU IDCT is approximate. Never recommend it as a
+        # replacement for a byte-exact IJG integer IDCT.
+        variants = required
         contenders = []
         for variant in variants[1:]:
             samples = ratios[(category, variant)]
