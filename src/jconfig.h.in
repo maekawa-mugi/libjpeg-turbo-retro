@@ -18,6 +18,9 @@
 /* Support in-memory source/destination managers */
 #define MEM_SRCDST_SUPPORTED  1
 
+/* Explicit PS2-only opt-in to the non-bit-exact native FPU decoder. */
+#cmakedefine PS2_APPROX_FPU_IDCT 1
+
 /* Use accelerated SIMD routines when using 8-bit samples */
 #cmakedefine WITH_SIMD 1
 
