@@ -303,15 +303,54 @@ ps2_even_products(JLONG z2, JLONG z3, JLONG products[3])
  * An unaligned coefficient buffer or a non-short quant table falls
  * back to reference C multiplication.
  */
+#if defined(PS2_IDCT_BATCH)
+static __attribute__((noinline)) void
+#else
 static void
+#endif
 ps2_dequant_block(const JCOEF *coef, const ISLOW_MULT_TYPE *quant,
                   JLONG products[DCTSIZE2])
 {
   int i;
   if (sizeof(ISLOW_MULT_TYPE) == 2 &&
       (((uintptr_t)coef | (uintptr_t)quant | (uintptr_t)products) & 15) == 0) {
+#if defined(PS2_IDCT_BATCH)
+    /* Keep HI/LO entirely inside one asm block.  Eight noinline calls
+     * formerly surrounded these same 64 products.  Prefetch the next
+     * operands while the current multiply is in flight. */
+    unsigned count = 8;
+    const JCOEF *src = coef;
+    const ISLOW_MULT_TYPE *table = quant;
+    JLONG *dst = products;
+    __asm__ volatile(
+      ".set push\n\t.set noreorder\n\t"
+      "lq $8, 0(%0)\n\t"
+      "lq $9, 0(%1)\n\t"
+      "1:\n\t"
+      "pmulth $10, $8, $9\n\t"
+      "addiu %3, %3, -1\n\t"
+      "addiu %0, %0, 16\n\t"
+      "beqz %3, 2f\n\t"
+      "addiu %1, %1, 16\n\t"
+      "lq $8, 0(%0)\n\t"
+      "lq $9, 0(%1)\n\t"
+      "2:\n\t"
+      "pmflo $11\n\t"
+      "pmfhi $12\n\t"
+      "pcpyld $13, $12, $11\n\t"
+      "pcpyud $14, $11, $12\n\t"
+      "sq $13, 0(%2)\n\t"
+      "sq $14, 16(%2)\n\t"
+      "bnez %3, 1b\n\t"
+      "addiu %2, %2, 32\n\t"
+      ".set pop\n\t"
+      : "+&r" (src), "+&r" (table), "+&r" (dst), "+&r" (count)
+      :
+      : "$8", "$9", "$10", "$11", "$12", "$13", "$14", "memory");
+#else
     for (i = 0; i < DCTSIZE2; i += 8)
       ps2_mul8_mmi(coef + i, quant + i, products + i);
+#endif
   } else {
     for (i = 0; i < DCTSIZE2; i++)
       products[i] = (JLONG)((ISLOW_MULT_TYPE)coef[i]) * quant[i];

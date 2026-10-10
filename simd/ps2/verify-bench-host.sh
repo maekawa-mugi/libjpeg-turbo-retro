@@ -19,6 +19,9 @@ cat >"$tmp/debug.h" <<'EOF'
 #define PS2_BENCH_FAKE_DEBUG_H
 void init_scr(void);
 void scr_printf(const char *, ...);
+void scr_setXY(int, int);
+void scr_setfontcolor(unsigned int);
+void scr_setCursor(int);
 #endif
 EOF
 cat >"$tmp/kernel.h" <<'EOF'

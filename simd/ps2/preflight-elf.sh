@@ -35,9 +35,12 @@ required=(
   ps2_bench_scalar_rgbx
   ps2_bench_pmul4_rgbx
   ps2_bench_pmul8_rgbx
+  ps2_bench_regpack_rgbx
+  ps2_bench_idct_batch
   ps2_bench_idct_evenoff
   ps2_bench_idct_evenon
   jsimd_quantize_ps2mmi
+  jsimd_quantize_legacy_ps2mmi
 )
 for symbol in "${required[@]}"; do
   if ! grep -Fxq "$symbol" <<<"$symbol_table"; then

@@ -229,12 +229,109 @@ pack4_mmi(const short *halfwords, JSAMPLE *dst)
     memcpy(dst, temporary, 16);
 }
 
+#if defined(PS2_EXPERIMENTAL_COLOR_REGISTER)
+/* Reconstruct and pack four pixels without spilling products or channels.
+ * The input staging supports independently unaligned planes.  Every load
+ * from a plane is a byte within the four-pixel batch, including row ends. */
+static INLINE void
+convert4_register(const JSAMPLE *y, const JSAMPLE *cbp, const JSAMPLE *crp,
+                  JSAMPLE *dst, const short *coeff, const short *green_coeff,
+                  int red, int green, int blue, int alpha)
+{
+  short inputs[16] __attribute__((aligned(16)));
+  short extra[16] __attribute__((aligned(16)));
+  int32_t bias[16] __attribute__((aligned(16)));
+  JSAMPLE temporary[16] __attribute__((aligned(16)));
+  JSAMPLE *target = ((uintptr_t)dst & 15u) ? temporary : dst;
+  int k;
+  for (k = 0; k < 4; k++) {
+    int cb = (int)cbp[k] - 128, cr = (int)crp[k] - 128;
+    short *in = inputs + 4 * k, *ex = extra + 4 * k;
+    int32_t *b = bias + 4 * k;
+    in[red] = (short)cr;
+    in[green] = in[blue] = (short)cb;
+    in[alpha] = 0;
+    ex[red] = ex[blue] = ex[alpha] = 0;
+    ex[green] = (short)cr;
+    b[red] = ((int)y[k] + cr) * 65536 + 32768;
+    b[green] = ((int)y[k] - cr) * 65536 + 32768;
+    b[blue] = ((int)y[k] + 2 * cb) * 65536 + 32768;
+    b[alpha] = 255 * 65536;
+  }
+  __asm__ volatile(
+    ".set push\n\t.set noreorder\n\t"
+    "lq $12, 0(%3)\n\t"
+    "lq $13, 0(%4)\n\t"
+    "lq $24, 0(%6)\n\t"
+    "lq $8, 0(%0)\n\t"
+    "lq $9, 0(%1)\n\t"
+    "pmulth $14, $8, $12\n\t"
+    "lq $10, 0(%2)\n\t"
+    "lq $11, 16(%2)\n\t"
+    "pmaddh $14, $9, $13\n\t"
+    "lq $8, 16(%0)\n\t"
+    "lq $9, 16(%1)\n\t"
+    "pmflo $14\n\t"
+    "pmfhi $15\n\t"
+    "pcpyld $16, $15, $14\n\t"
+    "pcpyud $17, $14, $15\n\t"
+    "paddw $16, $16, $10\n\t"
+    "paddw $17, $17, $11\n\t"
+    "psraw $16, $16, 16\n\t"
+    "psraw $17, $17, 16\n\t"
+    "ppach $16, $17, $16\n\t"
+    "pmaxh $16, $16, $0\n\t"
+    "pminh $16, $16, $24\n\t"
+    "pmulth $14, $8, $12\n\t"
+    "lq $10, 32(%2)\n\t"
+    "lq $11, 48(%2)\n\t"
+    "pmaddh $14, $9, $13\n\t"
+    "pmflo $14\n\t"
+    "pmfhi $15\n\t"
+    "pcpyld $8, $15, $14\n\t"
+    "pcpyud $9, $14, $15\n\t"
+    "paddw $8, $8, $10\n\t"
+    "paddw $9, $9, $11\n\t"
+    "psraw $8, $8, 16\n\t"
+    "psraw $9, $9, 16\n\t"
+    "ppach $8, $9, $8\n\t"
+    "pmaxh $8, $8, $0\n\t"
+    "pminh $8, $8, $24\n\t"
+    "ppacb $8, $8, $16\n\t"
+    "sq $8, 0(%5)\n\t"
+    ".set pop\n\t"
+    :
+    : "r" (inputs), "r" (extra), "r" (bias), "r" (coeff),
+      "r" (green_coeff), "r" (target), "r" (clamp255)
+    : "$8", "$9", "$10", "$11", "$12", "$13", "$14", "$15",
+      "$16", "$17", "$24", "memory");
+  if (target == temporary)
+    memcpy(dst, temporary, 16);
+}
+#endif
+
 static void
 convert_rows(JDIMENSION width, JSAMPIMAGE input_buf, JDIMENSION input_row,
              JSAMPARRAY output_buf, int num_rows,
              int pixel_size, int red, int green, int blue, int alpha)
 {
   int row;
+#if defined(PS2_EXPERIMENTAL_COLOR_REGISTER)
+  short coeff[8] __attribute__((aligned(16)));
+  short green_coeff[8] __attribute__((aligned(16)));
+  if (pixel_size == 4) {
+    int k;
+    for (k = 0; k < 2; k++) {
+      coeff[4 * k + red] = 26345;
+      coeff[4 * k + green] = -22554;
+      coeff[4 * k + blue] = -14942;
+      coeff[4 * k + alpha] = 0;
+      green_coeff[4 * k + red] = green_coeff[4 * k + blue] =
+        green_coeff[4 * k + alpha] = 0;
+      green_coeff[4 * k + green] = 18734;
+    }
+  }
+#endif
   for (row = 0; row < num_rows; row++) {
     const JSAMPLE *yp = input_buf[0][input_row + row];
     const JSAMPLE *cbp = input_buf[1][input_row + row];
@@ -243,6 +340,11 @@ convert_rows(JDIMENSION width, JSAMPIMAGE input_buf, JDIMENSION input_row,
     JDIMENSION col = 0;
 
     if (pixel_size == 4) {
+#if defined(PS2_EXPERIMENTAL_COLOR_REGISTER)
+      for (; width - col >= 4; col += 4)
+        convert4_register(yp + col, cbp + col, crp + col, dst + col * 4,
+                          coeff, green_coeff, red, green, blue, alpha);
+#endif
 #if defined(PS2_EXPERIMENTAL_COLOR_PMULTH8) && \
     defined(PS2_EXPERIMENTAL_COLOR_PMULTH)
       for (; width - col >= 8; col += 8) {

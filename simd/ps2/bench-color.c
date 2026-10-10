@@ -33,7 +33,8 @@ static const struct {
   { "portable_c", { portable_rgb, portable_extrgb, portable_extbgr,
                     portable_rgbx, portable_bgrx, portable_xbgr,
                     portable_xrgb }},
-  COLOR_VARIANT(scalar), COLOR_VARIANT(pmul4), COLOR_VARIANT(pmul8)
+  COLOR_VARIANT(scalar), COLOR_VARIANT(pmul4), COLOR_VARIANT(pmul8),
+  COLOR_VARIANT(regpack)
 };
 
 static const struct {
@@ -198,10 +199,10 @@ ps2_bench_run_color(void)
   };
   static const unsigned timed[] = { 128, 129 };
   unsigned v, li, wi, off, seed;
-  int valid[4] = { 1, 1, 1, 1 };
+  int valid[5] = { 1, 1, 1, 1, 1 };
   int failures = 0;
 
-  for (v = 0; v < 4; v++) {
+  for (v = 0; v < 5; v++) {
     for (li = 0; li < 7; li++)
       for (off = 0; off < 2; off++)
         for (seed = 0; seed < 2; seed++)
@@ -225,11 +226,11 @@ next_color:
   for (li = 3; li < 7; li++)
     for (off = 0; off < 2; off++)
       for (wi = 0; wi < 2; wi++) {
-        ps2_bench_variant entries[4];
-        color_ctx contexts[4];
+        ps2_bench_variant entries[5];
+        color_ctx contexts[5];
         unsigned n = 0;
         setup_color(off ? 1u : 0u, 1);
-        for (v = 0; v < 4; v++) {
+        for (v = 0; v < 5; v++) {
           if (!valid[v])
             continue;
           contexts[n].fn = variants[v].fn[li];

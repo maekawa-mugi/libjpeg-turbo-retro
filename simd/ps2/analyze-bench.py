@@ -18,12 +18,12 @@ import sys
 VARIANTS = {
     "merged": ("portable_c", "scalar", "pmul4", "pmul8",
                "addpack", "vector"),
-    "color": ("portable_c", "scalar", "pmul4", "pmul8"),
+    "color": ("portable_c", "scalar", "pmul4", "pmul8", "regpack"),
     "plain_up": ("portable_c", "mmi"),
     "fancy_up": ("portable_c", "mmi"),
     "downsample": ("portable_c", "mmi"),
-    "idct": ("ijg_c", "evenoff", "evenon"),
-    "quantize": ("ijg_c", "mmi"),
+    "idct": ("ijg_c", "evenoff", "evenon", "batch"),
+    "quantize": ("ijg_c", "mmi", "regpipe"),
 }
 CASE_COUNT = {
     "merged": 32,

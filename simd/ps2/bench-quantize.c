@@ -27,6 +27,7 @@ static const unsigned char jpeg_luma_quant[64] = {
 static DCTELEM divisor_mem[4 * 64 + 16] __attribute__((aligned(16)));
 static DCTELEM workspace_mem[64 + 16] __attribute__((aligned(16)));
 static JCOEF ref_mem[64 + 16] __attribute__((aligned(16)));
+static JCOEF legacy_mem[64 + 16] __attribute__((aligned(16)));
 static JCOEF mmi_mem[64 + 16] __attribute__((aligned(16)));
 
 typedef struct {
@@ -122,6 +123,7 @@ prepare_quant(unsigned profile, unsigned align, unsigned seed, q_ctx *q)
   for (i = 64; i < 80; i++) {
     ref_mem[i] = (JCOEF)0x5a5a;
     mmi_mem[i] = (JCOEF)0x5a5a;
+    legacy_mem[i] = (JCOEF)0x5a5a;
   }
 }
 
@@ -150,6 +152,13 @@ quantize_mmi(void *arg)
 }
 
 
+static void
+quantize_legacy(void *arg)
+{
+  q_ctx *q = (q_ctx *)arg;
+  jsimd_quantize_legacy_ps2mmi(q->output, q->divisors, q->workspace);
+}
+
 static uint32_t
 digest_quant(void *context)
 {
@@ -172,7 +181,7 @@ ps2_bench_run_quantize(void)
 {
   const char *names[6] = { "dc_only", "sparse", "dense", "extreme",
                            "jpeg_q75", "jpeg_q95" };
-  unsigned p, align, seed, i;
+  unsigned p, align, seed, i, v;
   int failures = 0;
   for (p = 0; p < 6; p++)
     for (align = 0; align < 2; align++)
@@ -184,14 +193,21 @@ ps2_bench_run_quantize(void)
         for (i = 0; i < 64; i++)
           ref.output[i] = q.output[i] = (JCOEF)0x5a5a;
         quantize_reference(&ref);
-        quantize_mmi(&q);
-        for (i = 0; i < 80 - (align ? 1u : 0u); i++) {
-          if (q.output[i] != ref.output[i]) {
-            printf("FAIL,quantize,%s,align=%u,seed=%u,lane=%u,got=%d,expected=%d\n",
-                   names[p], align, seed, i,
-                   (int)q.output[i], (int)ref.output[i]);
-            failures++;
-            goto quant_done;
+        for (v = 0; v < 2; v++) {
+          for (i = 0; i < 64; i++)
+            q.output[i] = (JCOEF)0x5a5a;
+          if (v == 0)
+            quantize_legacy(&q);
+          else
+            quantize_mmi(&q);
+          for (i = 0; i < 80 - (align ? 1u : 0u); i++) {
+            if (q.output[i] != ref.output[i]) {
+              printf("FAIL,quantize,%s,%s,align=%u,seed=%u,lane=%u,got=%d,expected=%d\n",
+                     v ? "regpipe" : "mmi", names[p], align, seed, i,
+                     (int)q.output[i], (int)ref.output[i]);
+              failures++;
+              goto quant_done;
+            }
           }
         }
       }
@@ -203,9 +219,11 @@ quant_done:
   puts("PASS,quantize,correctness,3072_cases");
   for (p = 0; p < 6; p++)
     for (align = 0; align < 2; align++) {
-      q_ctx q[2];
-      ps2_bench_variant entries[2];
+      q_ctx q[3];
+      ps2_bench_variant entries[3];
       prepare_quant(p, align, 47, &q[1]);
+      q[2] = q[1];
+      q[1].output = legacy_mem + (align ? 1 : 0);
       q[0] = q[1];
       q[0].output = ref_mem + (align ? 1 : 0);
 
@@ -215,12 +233,16 @@ quant_done:
       entries[0].digest = digest_quant;
       entries[0].reset = reset_quant;
       entries[1].name = "mmi";
-      entries[1].run = quantize_mmi;
+      entries[1].run = quantize_legacy;
       entries[1].context = &q[1];
       entries[1].digest = digest_quant;
       entries[1].reset = reset_quant;
+      entries[2] = entries[1];
+      entries[2].name = "regpipe";
+      entries[2].run = quantize_mmi;
+      entries[2].context = &q[2];
       if (ps2_bench_compare("quantize", names[p], 64,
-                            (int)align, entries, 2, Q_COUNT))
+                            (int)align, entries, 3, Q_COUNT))
         failures++;
     }
   return failures ? 1 : 0;

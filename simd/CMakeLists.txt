@@ -730,7 +730,8 @@ if(WITH_PS2_MMI_TESTS)
         "${CMAKE_CURRENT_BINARY_DIR}/ps2-bench-merged-${PS2_BENCH_VARIANT}.c")
       configure_file(ps2/bench-merged-variant.c.in "${variant_source}" @ONLY)
       add_library(ps2_bench_merged_${PS2_BENCH_VARIANT} OBJECT "${variant_source}")
-      if(NOT PS2_BENCH_VARIANT STREQUAL "scalar")
+      if(PS2_BENCH_VARIANT STREQUAL "pmul4" OR
+         PS2_BENCH_VARIANT STREQUAL "pmul8")
         target_compile_definitions(ps2_bench_merged_${PS2_BENCH_VARIANT}
           PRIVATE PS2_EXPERIMENTAL_MERGED_PMULTH=1)
       endif()
@@ -753,12 +754,13 @@ if(WITH_PS2_MMI_TESTS)
         $<TARGET_OBJECTS:ps2_bench_merged_${PS2_BENCH_VARIANT}>)
     endforeach()
 
-    foreach(PS2_BENCH_VARIANT scalar pmul4 pmul8)
+    foreach(PS2_BENCH_VARIANT scalar pmul4 pmul8 regpack)
       set(variant_source
         "${CMAKE_CURRENT_BINARY_DIR}/ps2-bench-color-${PS2_BENCH_VARIANT}.c")
       configure_file(ps2/bench-color-variant.c.in "${variant_source}" @ONLY)
       add_library(ps2_bench_color_${PS2_BENCH_VARIANT} OBJECT "${variant_source}")
-      if(NOT PS2_BENCH_VARIANT STREQUAL "scalar")
+      if(PS2_BENCH_VARIANT STREQUAL "pmul4" OR
+         PS2_BENCH_VARIANT STREQUAL "pmul8")
         target_compile_definitions(ps2_bench_color_${PS2_BENCH_VARIANT}
           PRIVATE PS2_EXPERIMENTAL_COLOR_PMULTH=1)
       endif()
@@ -766,15 +768,23 @@ if(WITH_PS2_MMI_TESTS)
         target_compile_definitions(ps2_bench_color_pmul8
           PRIVATE PS2_EXPERIMENTAL_COLOR_PMULTH8=1)
       endif()
+      if(PS2_BENCH_VARIANT STREQUAL "regpack")
+        target_compile_definitions(ps2_bench_color_regpack
+          PRIVATE PS2_EXPERIMENTAL_COLOR_REGISTER=1)
+      endif()
       list(APPEND PS2_BENCH_OBJECTS
         $<TARGET_OBJECTS:ps2_bench_color_${PS2_BENCH_VARIANT}>)
     endforeach()
 
-    foreach(PS2_BENCH_VARIANT evenoff evenon)
+    foreach(PS2_BENCH_VARIANT evenoff evenon batch)
       set(variant_source
         "${CMAKE_CURRENT_BINARY_DIR}/ps2-bench-idct-${PS2_BENCH_VARIANT}.c")
       configure_file(ps2/bench-idct-variant.c.in "${variant_source}" @ONLY)
       add_library(ps2_bench_idct_${PS2_BENCH_VARIANT} OBJECT "${variant_source}")
+      if(PS2_BENCH_VARIANT STREQUAL "batch")
+        target_compile_definitions(ps2_bench_idct_batch
+          PRIVATE PS2_IDCT_BATCH=1)
+      endif()
       if(PS2_BENCH_VARIANT STREQUAL "evenon")
         target_compile_definitions(ps2_bench_idct_evenon
           PRIVATE PS2_EXPERIMENTAL_IDCT_EVEN=1)

@@ -8,7 +8,7 @@ normal JPEG library keeps experimental dispatch disabled by default.
 
 ```sh
 PS2_ALL_IN_ONE=ON bash simd/ps2/build-test-elf.sh
-# ELF: build-ps2/simd/ps2_mmi_test_suite.elf
+# ELF: build-ps2/simd/libjpeg_turbo_mmi.elf
 ```
 
 From a clean WSL session with an installed EE compiler and PS2SDK:
@@ -21,11 +21,11 @@ export PS2SDK="${PS2SDK:-$PS2DEV/ps2sdk}"
 export PATH="$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PATH"
 test -x "$PS2DEV/ee/bin/mips64r5900el-ps2-elf-gcc"
 test -f "$PS2SDK/ee/startup/linkfile"
-git clone --single-branch --branch codex/ps2-color-mmul-4px \
+git clone --single-branch --branch mmi \
   https://github.com/maekawa-mugi/libjpeg-turbo-retro.git
 cd libjpeg-turbo-retro
 PS2_ALL_IN_ONE=ON bash simd/ps2/build-test-elf.sh
-ls -lh build-ps2/simd/ps2_mmi_test_suite.elf
+ls -lh build-ps2/simd/libjpeg_turbo_mmi.elf
 ~~~
 
 If PS2SDK is installed elsewhere, set PS2SDK to the actual directory
@@ -153,3 +153,27 @@ performance comparison to a SIMD-disabled library are also outstanding.
 The PR should stay Draft until the complete ELF cross-compiles, shows
 **9/9** on PS2/PCSX2, produces no `FAIL` or `SKIP` records,
 and real hardware benchmarks justify enabling any experiment.
+
+## Register pipeline candidates (2026-10-10)
+
+The default all-in-one ELF now compares these additional candidates with
+both C and the previous MMI implementations:
+
+- `idct/batch`: one assembly loop for the 64 aligned dequantization
+  products instead of eight calls.  Unaligned inputs retain the fallback.
+- `color/regpack`: PMULTH/PMADDH, channel reconstruction, one rounding
+  step, clipping and packing without intermediate product/channel stores.
+  Four RGBX layouts and scalar tails are included.
+- `quantize/regpipe`: register-based magnitudes, correction, unsigned
+  reciprocal adjustment, per-coefficient shifts and sign restoration.
+  Unsafe ranges and unaligned buffers retain the reference/fallback paths.
+  The old implementation remains the `mmi` contender.
+
+No SPR is used.  The complete CSV matrix is now 420 rows; use the matching
+`analyze-bench.py`.  All three candidates are automatically linked into
+`PS2_ALL_IN_ONE=ON` builds without additional flags.  The new color and
+IDCT candidates are benchmark-only until their measured performance is
+established; quantization remains behind the existing experimental
+quantization dispatch option.  Faster performance has not yet been
+established on either hardware or PCSX2.  Check the same-ELF correctness
+results and CSV before selecting a production implementation.

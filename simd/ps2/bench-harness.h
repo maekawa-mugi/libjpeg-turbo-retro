@@ -48,11 +48,16 @@ PS2_DECL_MERGED(vector)
 PS2_DECL_COLOR(scalar)
 PS2_DECL_COLOR(pmul4)
 PS2_DECL_COLOR(pmul8)
+PS2_DECL_COLOR(regpack)
 
 extern void ps2_bench_idct_evenoff(ISLOW_MULT_TYPE *, JCOEFPTR,
                                     JSAMPARRAY, JDIMENSION);
 extern void ps2_bench_idct_evenon(ISLOW_MULT_TYPE *, JCOEFPTR,
                                    JSAMPARRAY, JDIMENSION);
+
+extern void ps2_bench_idct_batch(ISLOW_MULT_TYPE *, JCOEFPTR,
+                                  JSAMPARRAY, JDIMENSION);
+extern void jsimd_quantize_legacy_ps2mmi(JCOEFPTR, DCTELEM *, DCTELEM *);
 
 /* Each implementation gets its own output target/context. */
 typedef struct {
