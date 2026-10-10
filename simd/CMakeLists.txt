@@ -683,6 +683,18 @@ if(WITH_PS2_EXPERIMENTAL_MERGED_VECTOR_OFFSETS)
   target_compile_definitions(simd PRIVATE PS2_EXPERIMENTAL_MERGED_VECTOR_OFFSETS=1)
 endif()
 
+# Separate novelty experiments, OFF by default and never used by normal
+# libjpeg dispatch.  VIF0 DMA uses bounded MMIO waits and is a transfer
+# microbenchmark, not a claimed DMA-powered JPEG IDCT.
+option(WITH_PS2_EXPERIMENTAL_VU0_IDCT
+  "Benchmark a VU0 macro-mode 4-lane approximate 8x8 inverse DCT" OFF)
+option(WITH_PS2_EXPERIMENTAL_VIF0_DMA
+  "Benchmark VIF0 DMA UNPACK versus CPU upload to VU0 data memory" OFF)
+if((WITH_PS2_EXPERIMENTAL_VU0_IDCT OR WITH_PS2_EXPERIMENTAL_VIF0_DMA)
+   AND NOT WITH_PS2_MMI_ALL_IN_ONE)
+  message(FATAL_ERROR "VU experiments require WITH_PS2_MMI_ALL_IN_ONE=ON")
+endif()
+
 option(WITH_PS2_MMI_TESTS "Build PS2 MMI SIMD kernel verification ELFs" OFF)
 option(WITH_PS2_MMI_ALL_IN_ONE
   "Build one EE ELF with scalar/PMULTH variants, correctness and rotated-median A/B benchmarks" OFF)
@@ -823,6 +835,26 @@ if(WITH_PS2_MMI_TESTS)
       ps2/bench-suite.c ps2/bench-merged.c ps2/bench-color.c
       ps2/bench-sampling.c ps2/bench-idct.c ps2/bench-ab.c
       ps2/bench-quantize.c ps2/test-jpeg-stream.c)
+    if(WITH_PS2_EXPERIMENTAL_VU0_IDCT)
+      check_c_source_compiles("
+        int main(void) {
+          __asm__ volatile(
+            \"lqc2 $vf1, 0(%0);\"
+            \"lqc2 $vf2, 0(%0);\"
+            \"vmul.xyzw $vf3, $vf1, $vf2;\"
+            \"vadd.xyzw $vf3, $vf3, $vf1;\"
+            \"sqc2 $vf3, 0(%0)\"
+            : : \"r\"((int *)0) : \"memory\");
+          return 0;
+        }" HAVE_PS2_VU0_MACRO)
+      if(NOT HAVE_PS2_VU0_MACRO)
+        message(FATAL_ERROR "VU0 COP2 macro instructions are unavailable")
+      endif()
+    endif()
+    if(WITH_PS2_EXPERIMENTAL_VU0_IDCT OR
+       WITH_PS2_EXPERIMENTAL_VIF0_DMA)
+      list(APPEND PS2_BENCH_SOURCE ps2/bench-vu-experiment.c)
+    endif()
   else()
     set(PS2_BENCH_SOURCE)
     set(PS2_BENCH_OBJECTS)
@@ -832,6 +864,14 @@ if(WITH_PS2_MMI_TESTS)
     ${PS2_TEST_OBJECTS} ${PS2_BENCH_SOURCE} ${PS2_BENCH_OBJECTS})
   if(WITH_PS2_MMI_ALL_IN_ONE)
     target_compile_definitions(ps2_mmi_test_suite PRIVATE PS2_MMI_ALL_IN_ONE=1)
+  endif()
+  if(WITH_PS2_EXPERIMENTAL_VU0_IDCT)
+    target_compile_definitions(ps2_mmi_test_suite
+      PRIVATE PS2_EXPERIMENTAL_VU0=1)
+  endif()
+  if(WITH_PS2_EXPERIMENTAL_VIF0_DMA)
+    target_compile_definitions(ps2_mmi_test_suite
+      PRIVATE PS2_EXPERIMENTAL_VIF0_DMA=1)
   endif()
   set_target_properties(ps2_mmi_test_suite PROPERTIES
     OUTPUT_NAME "libjpeg_turbo_mmi" SUFFIX ".elf")
