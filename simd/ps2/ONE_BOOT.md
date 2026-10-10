@@ -40,8 +40,12 @@ DMA channel-0 transfer with a two-quadword VIF0 command header
 into VU0's memory-mapped data RAM. `cpu_store` writes the same words
 to the same VU0 address; `vif0_dma` includes cache flush, DMA start
 and bounded DMA/VIF completion waits in its measured interval.
-Both verify the same 256-byte data. This is a **transfer-only** benchmark,
-not a DMA-fed IDCT, and must not be reported as an IDCT speedup.
+Both verify the same 256-byte data. The test temporarily masks the
+documented VIF0 DMAtag mismatch-detection erratum (`VIF0_ERR.ME0=1`),
+requires VIF0's FIFO to be empty and VPS to be idle before CPU reads
+VU0 data RAM, and restores the original VIF error mask on exit.
+This is a **transfer-only** benchmark, not a DMA-fed IDCT, and must
+not be reported as an IDCT speedup.
 The VIF0 DMA channel must be idle/owned exclusively during this
 opt-in experiment, which should be run in isolation from other VIF0 users.
 
