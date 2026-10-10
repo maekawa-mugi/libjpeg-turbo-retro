@@ -4,75 +4,84 @@ This optional test executable links all experimental variants as **separate
 symbols**, so a PS2 owner can verify and compare them in **one boot**.  The
 normal JPEG library keeps experimental dispatch disabled by default.
 
-## Build every experiment profile and publish ELFs in the repository root
+## One build, one ELF, one final verdict
 
 ```sh
-# Default, one command: 16 separately configured PS2 EE ELF files.
 bash simd/ps2/build-test-elf.sh
-
-# Optional, only the 8 combinations with IDCT even-off.
-PS2_BUILD_MATRIX=core bash simd/ps2/build-test-elf.sh
-
-# Optional, one manually configured binary.
-PS2_BUILD_MATRIX=single PS2_VU0_IDCT=ON PS2_VIF0_DMA=ON \
-  bash simd/ps2/build-test-elf.sh
-
-# Check published binaries and per-profile checksums:
-ls -lh libjpeg_turbo_mmi*.elf
-cat ps2-elf-manifest.csv
+# Result: ./libjpeg_turbo_mmi.elf
 ```
 
-The default `PS2_BUILD_MATRIX=all` exhaustively combines 4 independent
-ON/OFF switches: `PS2_IDCT_EVEN`, `PS2_APPROX_FPU_IDCT`,
-`PS2_VU0_IDCT`, and `PS2_VIF0_DMA`. Each one-boot ELF continues
-to include every scalar, PMULTH, table, direct, and other existing
-internal timing contender. Matrix mode creates **16 independent CMake
-build directories** under `build-ps2/profiles/` (not 16 stale
-reconfigurations of one cache). The validated ELF binaries go directly to
-the **repository root**, with unambiguous names such as:
+This is the **only** PCSX2 executable published by the default build,
+at the repository root. Object files and CMake cache stay under
+`build-ps2/one-elf/`. The script replaces the old 16-ELF matrix,
+validates the binary with EE `readelf`/`nm`, and removes previously
+generated `libjpeg_turbo_mmi_even*.elf` files and the obsolete profile
+manifest **only after** a successful build. It never deletes unrelated
+ELF files. Keep the same binary for all tests.
+
+Every benchmark candidate is compiled into that **same** binary:
+the existing scalar/MMI/table color and merged variants, plain/fancy
+upsampling and downsampling, integer IDCT `ijg_c/evenoff/evenon/batch/direct`,
+quantizer variants, the opt-in accuracy-checked `fpu_approx`, a real
+VU0 macro-mode float-matrix IDCT, and the separate VIF0 DMA upload test.
+
+Important: the approximate `fpu_approx` contender is compiled **only
+for benchmarking** via `WITH_PS2_BENCH_APPROX_FPU_IDCT=ON`.
+The library's default decoder remains IJG integer IDCT
+(`WITH_PS2_APPROX_FPU_IDCT=OFF`). Evenoff and evenon are both present
+as independent exact contenders, so 16 build-time combinations are
+unnecessary. Runtime JPEG stream tests exercise ISLOW, IFAST, and FLOAT
+by setting the desired method explicitly.
+
+### Final screen interpretation
+
+After 8/8 correctness checks and all benchmark groups, the GS screen
+automatically displays:
 
 ```text
-libjpeg_turbo_mmi_evenoff_exact.elf
-libjpeg_turbo_mmi_evenoff_fpu.elf
-libjpeg_turbo_mmi_evenoff_exact_vu0.elf
-libjpeg_turbo_mmi_evenoff_exact_dma.elf
+EXACT IDCT: ijg_c   1.00x | FPU~: ...x / N/A
+VU0 vs float: ...x | DMA vs CPU upload: ...x
 ...
-libjpeg_turbo_mmi_evenon_fpu_vu0_dma.elf
-libjpeg_turbo_mmi.elf
-ps2-elf-manifest.csv
+TAKEAWAY: exact ijg_c ; VU0 experimental; skip DMA
+...
+RESULT: PASS | tests 8/8 | bench failures 0
 ```
 
-The unqualified `libjpeg_turbo_mmi.elf` is a copy of
-`libjpeg_turbo_mmi_evenoff_exact.elf`, for older PCSX2 launch scripts.
-It is not an extra experimental configuration. The CSV manifest lists
-each profile, filename, four option values, and SHA-256. The output
-is published only **after** the cross-link and ELF preflight succeed.
-Any build failure ends the batch with a nonzero status. Old binaries
-from earlier runs can remain in the root, so use the new manifest to
-identify artifacts from the most recent **completed** batch.
+The precise text and winner depend on the measured PS2/PCSX2 results.
+The exact IDCT winner is selected **only** among bit-exact integer
+candidates; float FPU is never promoted to an exact integer winner.
+The FPU ratio compares the approximate IDCT against `ijg_c` on
+the same dense 8x8 block; FPU results are hidden if the maximum
+absolute pixel error exceeds 3. The VU0 ratio is vs an **equivalent
+scalar float matrix**, *not* vs IJG integer. The DMA ratio measures
+only **256-byte memory transfer**, *not* the decode pipeline.
 
-Set `PS2_BUILD_MATRIX=single` to preserve a manually selected flag
-combination. Matrix mode ignores individual values of these four
-toggles because it intentionally enumerates all possible combinations.
-`PS2_ALL_IN_ONE=OFF` is supported only with `single`.
-There is no need to copy the ELF out of `build-ps2` yourself.
-The PS2SDK build/bootstrap still occurs once per batch.
+The takeaway uses a representative dense IDCT sample and a provisional
+5% benefit threshold. It does not change libjpeg dispatch or claim
+whole-image speedups. Full comparable workload results, pixel-error
+reports, and `CONCLUSION,...` machine-readable verdict lines remain
+available on stdout. A failed test displays "VERDICT INVALID", never
+an endorsement of unvalidated timing.
+
+The root ELF can still be launched with existing PCSX2 scripts.
+For reproducible host-only checks:
+`bash simd/ps2/verify-bench-host.sh`.
+The PS2 EE toolchain is required to produce the real ELF.
 
 ## Novelty experiment: VU0 arithmetic and VIF0 DMA upload
 
-The all-in-one ELF has two additional default-**OFF** benchmark experiments.
+The one-ELF test suite includes two additional benchmark experiments.
 They are deliberately separate from the exact integer IDCT contenders.
 
 ```sh
 # Both experiments in the same ELF (no PR or runtime decoder changes):
-PS2_ALL_IN_ONE=ON PS2_VU0_IDCT=ON PS2_VIF0_DMA=ON \
-  bash simd/ps2/build-test-elf.sh
+bash simd/ps2/build-test-elf.sh
 
 # Only 4-lane VU0 macro-mode floating IDCT:
-PS2_ALL_IN_ONE=ON PS2_VU0_IDCT=ON bash simd/ps2/build-test-elf.sh
+bash simd/ps2/build-test-elf.sh
 
 # Only VIF0 normal DMA UNPACK upload to VU0 local memory:
-PS2_ALL_IN_ONE=ON PS2_VIF0_DMA=ON bash simd/ps2/build-test-elf.sh
+bash simd/ps2/build-test-elf.sh
 ```
 
 **VU0 IDCT (`vu_idct`, experimental on-screen row 8):** Computes a real
@@ -116,7 +125,7 @@ CSV,vif0_dma,cpu_store,upload256,256,0,...
 CSV,vif0_dma,vif0_dma,upload256,256,0,...
 ```
 
-The required CSV matrix remains **484** rows, with 16 more if the
+The base CSV matrix is **484** rows, with 16 more if the
 earlier FPU experiment qualifies, 2 more per enabled experiment
 (488 total with VU0 and VIF0 DMA, 504 including qualifying FPU).
 The report parser prints both experimental ratios separately from
@@ -148,10 +157,10 @@ accuracy/quality impact must be judged on actual output images.
 
 ```sh
 # Exact integer IDCT contenders (default) including direct:
-PS2_ALL_IN_ONE=ON bash simd/ps2/build-test-elf.sh
+bash simd/ps2/build-test-elf.sh
 
 # Optional native float decoder + fpu_approx timing candidate:
-PS2_ALL_IN_ONE=ON PS2_APPROX_FPU_IDCT=ON bash simd/ps2/build-test-elf.sh
+bash simd/ps2/build-test-elf.sh
 ```
 
 In float mode the log prints
@@ -164,7 +173,7 @@ allowed to differ from IJG's strict integer digest; all other
 contenders still require byte-exact agreement.  JPEG-stream layout
 testing adds `JDCT_FLOAT` when the option is enabled.
 
-The full timing matrix contains 484 rows by default, or 500 when
+The exact benchmark matrix contains 488 rows with VU0 + DMA, or 504 when
 `fpu_approx` passes its quality gate.  The verdict parser
 (`simd/ps2/analyze-bench.py`) accepts either complete matrix and
 supports the new 8/8 `LIBJPEG_PS2,DONE,PASS` transcript.
@@ -172,7 +181,7 @@ supports the new 8/8 `LIBJPEG_PS2,DONE,PASS` transcript.
 ## Build on your computer, then choose a root-level ELF
 
 ```sh
-PS2_ALL_IN_ONE=ON bash simd/ps2/build-test-elf.sh
+bash simd/ps2/build-test-elf.sh
 # ELFs: ./libjpeg_turbo_mmi_evenoff_exact.elf, ..., ./libjpeg_turbo_mmi.elf
 ```
 
@@ -189,8 +198,8 @@ test -f "$PS2SDK/ee/startup/linkfile"
 git clone --single-branch --branch mmi \
   https://github.com/maekawa-mugi/libjpeg-turbo-retro.git
 cd libjpeg-turbo-retro
-PS2_ALL_IN_ONE=ON bash simd/ps2/build-test-elf.sh
-ls -lh libjpeg_turbo_mmi*.elf
+bash simd/ps2/build-test-elf.sh
+ls -lh libjpeg_turbo_mmi.elf
 ~~~
 
 If PS2SDK is installed elsewhere, set PS2SDK to the actual directory
