@@ -70,6 +70,34 @@ PCSX2, and compare `CSV,color,table` / `CSV,merged,table` to
 `test-color-table-host.c` checks all 65,536 chroma byte pairs against the
 IJG reference math (and representative luma/clipping cases).
 
+## Experimental exact/direct and native-FPU IDCT benchmarks
+
+`idct/direct` is a new bit-exact IJG-integer contender: it avoids the
+non-DC path's 64-element dequant buffer and repeatedly staging short-lived
+MMI vectors to/from the stack.  It retains the MMI zero-AC detector and
+must pass the full 2048-case integer differential check before timing.
+It is benchmark-only.  It does not change normal decoder selection.
+
+`WITH_PS2_APPROX_FPU_IDCT=ON` explicitly opts into `JDCT_FLOAT` as the
+default PS2 **decoder** IDCT and enables an `idct/fpu_approx` same-ELF
+benchmark candidate.  The float implementation is libjpeg's pre-existing
+AA&N algorithm running on the native PS2 single-precision COP1 FPU.
+It can differ from the integer reference, since the EE FPU does not fully
+implement IEEE 754.  The opt-in does not affect encoder defaults and callers
+that explicitly choose an IDCT method still take precedence.
+
+```sh
+PS2_ALL_IN_ONE=ON PS2_APPROX_FPU_IDCT=ON bash simd/ps2/build-test-elf.sh
+```
+
+The FPU test prints max absolute pixel difference and differing-pixel count,
+plus validates unchanged output guards.  A difference above 3 or a modified
+guard suppresses FPU timing; the strict integer contenders remain byte-exact.
+Without this flag, neither the decoder default nor FPU benchmark is changed.
+New single-boot timing matrix: 484 rows by default, 500 with qualifying FPU.
+Run `python3 simd/ps2/analyze-bench.py <console-log>` for completeness and
+relative performance.  PCSX2/real-hardware measurements are still required.
+
 ## Current coverage
 
 - `h2v1` plain upsampling: 16-byte MMI loads, byte interleave, 32-byte
