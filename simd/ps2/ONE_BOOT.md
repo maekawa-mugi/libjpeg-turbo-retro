@@ -152,9 +152,9 @@ CSV,vif0_dma,cpu_store,upload256,256,0,...
 CSV,vif0_dma,vif0_dma,upload256,256,0,...
 ```
 
-The base CSV matrix contains **532** exact rows, plus 16 approximate
+The base CSV matrix contains **516** exact rows, plus 16 approximate
 FPU rows when output guards are intact, and 2 each for VU0 and DMA
-(536 total without FPU, 552 with FPU).
+(520 total without FPU, 536 with FPU).
 The report parser prints both experimental ratios separately from
 the production JPEG candidate verdicts. Neither experiment is
 known to be faster on PCSX2 or actual EE until run. The VU0 instruction
@@ -202,7 +202,7 @@ allowed to differ from IJG's strict integer digest; all other
 contenders still require byte-exact agreement.  JPEG-stream layout
 testing adds `JDCT_FLOAT` when the option is enabled.
 
-The one-ELF matrix contains 536 rows without FPU, or 552 when the
+The one-ELF matrix contains 520 rows without FPU, or 536 when the
 FPU output guards pass. It also includes the two new exact candidates
 `lut` and `lut_norow` (2048 differential comparisons each).  The verdict parser
 (`simd/ps2/analyze-bench.py`) accepts either complete matrix and
@@ -369,8 +369,8 @@ both C and the previous MMI implementations:
   Unsafe ranges and unaligned buffers retain the reference/fallback paths.
   The old implementation remains the `mmi` contender.
 
-No SPR is used by this quantizer. The one-ELF CSV matrix contains 536 rows
-(552 with guarded FPU); use the matching
+No SPR is used by this quantizer. The one-ELF CSV matrix contains 520 rows
+(536 with guarded FPU); use the matching
 `analyze-bench.py`.  All three candidates are automatically linked into
 `PS2_ALL_IN_ONE=ON` builds without additional flags.  The new color and
 IDCT candidates are benchmark-only until their measured performance is
