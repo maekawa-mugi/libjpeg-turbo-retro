@@ -105,8 +105,10 @@ int main(void)
   }
   scr_setXY(0,14);
   scr_printf("%-13s %-16s %s","BENCH FAMILY","PROVISIONAL BEST","SPEED");
-  for(i=0;i<9;i++)
+  for(i=0;i<7;i++)
     ps2_ui_bench_result(i,"pending","--",0,0);
+  ps2_ui_bench_result(7,"vu_idct","N/A",0,0);
+  ps2_ui_bench_result(8,"vif0_dma","N/A",0,0);
   ps2_test_puts("LIBJPEG_PS2,START,correctness+benchmark");
 #ifdef PS2_EXPERIMENTAL_IDCT_EVEN
   ps2_test_puts("LIBJPEG_PS2,IDCT_EVEN,MMI");
