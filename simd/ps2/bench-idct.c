@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: Zlib
  */
 #include "bench-harness.h"
+#include "bench-idct-range.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -92,19 +93,6 @@ digest_fpu_approx(void *context)
 }
 #endif
 
-static JSAMPLE
-range_limit_value(int x)
-{
-  unsigned int index = (unsigned int)x & 1023u;
-  if (index < 128)
-    return (JSAMPLE)(index + 128);
-  if (index < 512)
-    return 255;
-  if (index < 896)
-    return 0;
-  return (JSAMPLE)(index - 896);
-}
-
 static void
 initialize_idct(void)
 {
@@ -113,16 +101,7 @@ initialize_idct(void)
   memset(&component, 0, sizeof(component));
   cinfo.data_precision = 8;
   cinfo.sample_range_limit = sample_range + 256;
-  for (i = 0; i < 1024; i++)
-    sample_range[256 + 128 + i] = range_limit_value((int)i);
-  /* _jpeg_idct_islow uses IDCT_range_limit(cinfo), i.e. the base
-   * pointer + CENTERJSAMPLE. _jpeg_idct_float reads the BASE pointer
-   * directly. The shared 1024-byte overlapping table must also fill
-   * base[0..127] with identity samples, just like jdmaster.c.
-   * Omitting these bytes created bogus 255-level FPU mismatches.
-   */
-  for (i = 0; i < 128; i++)
-    sample_range[256 + i] = (JSAMPLE)i;
+  ps2_bench_init_idct_range(sample_range);
   for (i = 0; i < 8; i++) {
     refrows[i] = refmem[i];
     outrows[0][i] = outmem[0][i];
