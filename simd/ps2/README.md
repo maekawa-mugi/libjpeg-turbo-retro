@@ -98,10 +98,9 @@ a PS2 cross compiler is needed to produce/validate the actual ELF.
 
 ## Optional VU0 and VIF0 DMA novelty benchmarks
 
-Set `PS2_VU0_IDCT=ON` and/or `PS2_VIF0_DMA=ON` when running
-`simd/ps2/build-test-elf.sh` to add two **separately timed experimental**
-rows to the single-boot GS display. Both default to OFF. They are not
-production JPEG dispatch candidates.
+The default `simd/ps2/build-test-elf.sh` now includes both VU0 and
+VIF0 DMA as **separately timed experimental** rows in the same ELF.
+Neither path is enabled in normal JPEG dispatch.
 
 - `vu_idct / vu0_macro`: a real COP2 VU0 macro-mode 4-lane
   **float matrix IDCT** against a scalar float matrix baseline. It
@@ -128,8 +127,9 @@ must pass the full 2048-case integer differential check before timing.
 It is benchmark-only.  It does not change normal decoder selection.
 
 `WITH_PS2_APPROX_FPU_IDCT=ON` explicitly opts into `JDCT_FLOAT` as the
-default PS2 **decoder** IDCT and enables an `idct/fpu_approx` same-ELF
-benchmark candidate.  The float implementation is libjpeg's pre-existing
+default PS2 **decoder** IDCT for manually configured library builds.
+For the one-ELF test runner, `WITH_PS2_BENCH_APPROX_FPU_IDCT=ON` instead
+includes `idct/fpu_approx` without changing the integer decoder default.  The float implementation is libjpeg's pre-existing
 AA&N algorithm running on the native PS2 single-precision COP1 FPU.
 It can differ from the integer reference, since the EE FPU does not fully
 implement IEEE 754.  The opt-in does not affect encoder defaults and callers
@@ -274,7 +274,7 @@ from an existing checkout specified by `PS2SDK_SOURCE` (default:
 The copied SDK source, libraries, and startup object stay in
 `build-ps2-sdk/`; the compiler installation is not modified.
 
-Open `build-ps2/simd/ps2_mmi_test_suite.elf` in PCSX2 to run all seven
+Open `libjpeg_turbo_mmi.elf` in the repository root using PCSX2 to run all seven
 test groups: MMI primitives, plain/fancy upsampling, downsampling,
 integer IDCT, YCbCr color conversion, and merged upsampling/color conversion.
 The runner uses PS2SDK's debug screen to display failures and the new
