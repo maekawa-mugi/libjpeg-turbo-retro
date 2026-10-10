@@ -37,7 +37,7 @@ class TestVerdicts(unittest.TestCase):
         self.assertFalse(errors)
         ratios, missing = REPORT.inspect_matrix(rows)
         self.assertFalse(missing)
-        self.assertEqual(len(rows), 484)
+        self.assertEqual(len(rows), 516)
         results = REPORT.verdicts(ratios)
         for cat, (_, candidate) in results.items():
             self.assertIsNotNone(candidate, cat)
@@ -55,7 +55,7 @@ class TestVerdicts(unittest.TestCase):
         self.assertFalse(errors)
         ratios, missing = REPORT.inspect_matrix(rows)
         self.assertFalse(missing)
-        self.assertEqual(len(rows), 500)
+        self.assertEqual(len(rows), 532)
         self.assertEqual(len(ratios["idct", "fpu_approx"]), 16)
         self.assertNotEqual(REPORT.verdicts(ratios)["idct"][1][2],
                             "fpu_approx",
@@ -78,7 +78,7 @@ class TestVerdicts(unittest.TestCase):
         self.assertFalse(errors)
         ratios, missing = REPORT.inspect_matrix(rows)
         self.assertFalse(missing)
-        self.assertEqual(len(rows), 488)
+        self.assertEqual(len(rows), 520)
         self.assertAlmostEqual(ratios["vu_idct", "vu0_macro"][0], 5 / 6)
         self.assertAlmostEqual(ratios["vif0_dma", "vif0_dma"][0], 1 / 4)
         incomplete = [line for line in lines
