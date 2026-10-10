@@ -18,8 +18,8 @@ static JSAMPLE sample_range[5 * 256 + 128];
 static JCOEF coeff_mem[80] __attribute__((aligned(16)));
 static ISLOW_MULT_TYPE quant_mem[80] __attribute__((aligned(16)));
 static JSAMPLE refmem[8][DCT_ROW_BYTES] __attribute__((aligned(16)));
-static JSAMPLE outmem[4][8][DCT_ROW_BYTES] __attribute__((aligned(16)));
-static JSAMPROW refrows[8], outrows[4][8];
+static JSAMPLE outmem[6][8][DCT_ROW_BYTES] __attribute__((aligned(16)));
+static JSAMPROW refrows[8], outrows[6][8];
 
 typedef struct {
   unsigned int pattern;
@@ -129,6 +129,8 @@ initialize_idct(void)
     outrows[1][i] = outmem[1][i];
     outrows[2][i] = outmem[2][i];
     outrows[3][i] = outmem[3][i];
+    outrows[4][i] = outmem[4][i];
+    outrows[5][i] = outmem[5][i];
 #ifdef PS2_APPROX_FPU_IDCT
     fpu_rows[i] = fpu_mem[i];
 #endif
@@ -185,6 +187,8 @@ prepare_case(idct_case *ctx, unsigned profile,
     memset(outrows[1][i], 0xc9, DCT_ROW_BYTES);
     memset(outrows[2][i], 0xc9, DCT_ROW_BYTES);
     memset(outrows[3][i], 0xc9, DCT_ROW_BYTES);
+    memset(outrows[4][i], 0xc9, DCT_ROW_BYTES);
+    memset(outrows[5][i], 0xc9, DCT_ROW_BYTES);
   }
 }
 
@@ -260,13 +264,15 @@ check_islow_output(JSAMPARRAY actual)
 int
 ps2_bench_run_idct(void)
 {
-  const ps2_idct_fn kernels[4] = {
+  const ps2_idct_fn kernels[6] = {
     ps2_bench_idct_evenoff, ps2_bench_idct_evenon,
-    ps2_bench_idct_batch, ps2_bench_idct_direct
+    ps2_bench_idct_batch, ps2_bench_idct_direct,
+    ps2_bench_idct_lut, ps2_bench_idct_lut_norow
   };
-  const char *names[4] = { "evenoff", "evenon", "batch", "direct" };
+  const char *names[6] = { "evenoff", "evenon", "batch", "direct",
+                            "lut", "lut_norow" };
   const char *workloads[4] = { "dc_only", "sparse", "dense", "even_stress" };
-  int valid[4] = { 1, 1, 1, 1 };
+  int valid[6] = { 1, 1, 1, 1, 1, 1 };
   int failures = 0;
 #ifdef PS2_APPROX_FPU_IDCT
   unsigned fpu_max_diff = 0, fpu_differences = 0;
@@ -304,7 +310,7 @@ ps2_bench_run_idct(void)
             }
         }
 #endif
-        for (v = 0; v < 4; v++) {
+        for (v = 0; v < 6; v++) {
           idct_call call;
           if (!valid[v])
             continue;
@@ -321,7 +327,7 @@ ps2_bench_run_idct(void)
         }
       }
 
-  for (v = 0; v < 4; v++)
+  for (v = 0; v < 6; v++)
     if (valid[v])
       printf("PASS,idct,%s,correctness,2048_cases\n", names[v]);
 #ifdef PS2_APPROX_FPU_IDCT
@@ -336,8 +342,8 @@ ps2_bench_run_idct(void)
   for (profile = 0; profile < 4; profile++)
     for (alignment = 0; alignment < 4; alignment++) {
       idct_case ctx;
-      idct_call contexts[4];
-      ps2_bench_variant entries[6];
+      idct_call contexts[6];
+      ps2_bench_variant entries[8];
       unsigned n = 0;
       prepare_case(&ctx, profile, 117, (int)alignment);
 #ifdef PS2_APPROX_FPU_IDCT
@@ -351,7 +357,7 @@ ps2_bench_run_idct(void)
       entries[n].reset = reset_idct_scalar;
       n++;
 
-      for (v = 0; v < 4; v++) {
+      for (v = 0; v < 6; v++) {
         if (!valid[v])
           continue;
         contexts[v].fn = kernels[v];
