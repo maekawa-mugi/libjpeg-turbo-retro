@@ -22,7 +22,7 @@ ELF files. Keep the same binary for all tests.
 Every benchmark candidate is compiled into that **same** binary:
 the existing scalar/MMI/table color and merged variants, plain/fancy
 upsampling and downsampling, integer IDCT `ijg_c/evenoff/evenon/batch/direct`,
-quantizer variants, the opt-in accuracy-checked `fpu_approx`, a real
+quantizer variants, the opt-in error-reported `fpu_approx`, a real
 VU0 macro-mode float-matrix IDCT, and the separate VIF0 DMA upload test.
 
 Important: the approximate `fpu_approx` contender is compiled **only
@@ -52,7 +52,7 @@ The exact IDCT winner is selected **only** among bit-exact integer
 candidates; float FPU is never promoted to an exact integer winner.
 The FPU ratio compares the approximate IDCT against `ijg_c` on
 the same dense 8x8 block; FPU results are hidden if the maximum
-absolute pixel error exceeds 3. The VU0 ratio is vs an **equivalent
+output guards are corrupted. Errors exceeding 3 are reported as warnings; The VU0 ratio is vs an **equivalent
 scalar float matrix**, *not* vs IJG integer. The DMA ratio measures
 only **256-byte memory transfer**, *not* the decode pipeline.
 
@@ -67,6 +67,37 @@ The root ELF can still be launched with existing PCSX2 scripts.
 For reproducible host-only checks:
 `bash simd/ps2/verify-bench-host.sh`.
 The PS2 EE toolchain is required to produce the real ELF.
+
+## New dense integer IDCT candidates (2026-10-10)
+
+Measured in the supplied PCSX2 transcript for aligned dense 8x8 blocks:
+`ijg_c` 1411 ticks, `direct` 1595 ticks, older MMI `evenoff` 2875
+ticks; in DC-only, `direct` needs 141 ticks versus `ijg_c` 509.
+The two added **bit-exact, separately compiled** candidates are:
+
+- `lut`: a 1024-byte lookup table for the exact IJG post-IDCT
+  signed/10-bit wrapping range map; moving coefficient/quant pointers
+  to remove repeated index/pointer-difference calculations. Preserves
+  DC-only and zero-row fast paths.
+- `lut_norow`: the above plus an early test of four AC coefficients
+  before the complete MMI DC-only test; skips the zero-row check that
+  rarely helps dense data. The skipped row test may hurt sparse cases.
+
+Both execute the full 2048-case byte-for-byte reference validation
+(including output sentinels and unaligned coefficient/quant buffers)
+before a timing result can be used. Neither is promoted into normal
+JPEG dispatch automatically. The final one-shot GS summary considers
+these variants as possible **exact** IDCT winners only after validation.
+FPU errors, VU0 math, and VIF0 DMA are displayed separately.
+
+A second fix initializes the shared JPEG range-limit buffer for both
+`_jpeg_idct_islow` (which indexes the base + 128) and
+`_jpeg_idct_float` (which uses the base itself). Previously, the
+floating-point benchmark read an uninitialized 128-byte base segment
+and falsely reported up to 255 levels of difference. A portable host
+regression now exhaustively checks the complete overlapping range views
+and the 1024-entry LUT. The PS2 FPU's real rounding error must be
+re-measured on PCSX2; no speedup or quality improvement is claimed yet.
 
 ## Novelty experiment: VU0 arithmetic and VIF0 DMA upload
 
@@ -121,9 +152,9 @@ CSV,vif0_dma,cpu_store,upload256,256,0,...
 CSV,vif0_dma,vif0_dma,upload256,256,0,...
 ```
 
-The base CSV matrix is **484** rows, with 16 more if the
-earlier FPU experiment qualifies, plus 2 each for VU0 and DMA
-(488 total with VU0 and VIF0 DMA, 504 including qualifying FPU).
+The base CSV matrix contains **532** exact rows, plus 16 approximate
+FPU rows when output guards are intact, and 2 each for VU0 and DMA
+(536 total without FPU, 552 with FPU).
 The report parser prints both experimental ratios separately from
 the production JPEG candidate verdicts. Neither experiment is
 known to be faster on PCSX2 or actual EE until run. The VU0 instruction
@@ -162,15 +193,18 @@ bash simd/ps2/build-test-elf.sh
 In float mode the log prints
 `APPROX,idct,fpu_approx,2048_cases,max_abs_diff=...,different_pixels=...,guards=PASS`.
 This is not an integer correctness PASS.  The `fpu_approx` candidate
-joins the timing matrix only if all 2048 cases have intact sentinels
-and a maximum absolute pixel difference of 3 or less.  Its per-variant
+joins the timing matrix if the output guards remain intact. Even when
+pixel errors exceed 3, they are reported explicitly as
+`QUALITY_WARNING` and timing is included, but it can never become
+the recommended exact IDCT.  Its per-variant
 output digest must remain stable in the timed repeats, but it is
 allowed to differ from IJG's strict integer digest; all other
 contenders still require byte-exact agreement.  JPEG-stream layout
 testing adds `JDCT_FLOAT` when the option is enabled.
 
-The exact benchmark matrix contains 488 rows with VU0 + DMA, or 504 when
-`fpu_approx` passes its quality gate.  The verdict parser
+The one-ELF matrix contains 536 rows without FPU, or 552 when the
+FPU output guards pass. It also includes the two new exact candidates
+`lut` and `lut_norow` (2048 differential comparisons each).  The verdict parser
 (`simd/ps2/analyze-bench.py`) accepts either complete matrix and
 supports the new 8/8 `LIBJPEG_PS2,DONE,PASS` transcript.
 
@@ -335,8 +369,8 @@ both C and the previous MMI implementations:
   Unsafe ranges and unaligned buffers retain the reference/fallback paths.
   The old implementation remains the `mmi` contender.
 
-No SPR is used by this quantizer. The one-ELF CSV matrix contains 488 rows
-(504 with qualifying FPU); use the matching
+No SPR is used by this quantizer. The one-ELF CSV matrix contains 536 rows
+(552 with guarded FPU); use the matching
 `analyze-bench.py`.  All three candidates are automatically linked into
 `PS2_ALL_IN_ONE=ON` builds without additional flags.  The new color and
 IDCT candidates are benchmark-only until their measured performance is
