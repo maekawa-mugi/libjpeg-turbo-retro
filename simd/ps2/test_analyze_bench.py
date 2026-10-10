@@ -27,7 +27,7 @@ def complete_log():
                     f"{ticks // 100}"
                 )
     lines.append("BENCH_END,failures=0")
-    lines.append("TEST: OK! (9/9 groups passed)")
+    lines.append("LIBJPEG_PS2,DONE,PASS,tests=8,passed=8,bench_failures=0")
     return lines
 
 
@@ -37,12 +37,30 @@ class TestVerdicts(unittest.TestCase):
         self.assertFalse(errors)
         ratios, missing = REPORT.inspect_matrix(rows)
         self.assertFalse(missing)
-        self.assertEqual(len(rows), 420)
+        self.assertEqual(len(rows), 484)
         results = REPORT.verdicts(ratios)
         for cat, (_, candidate) in results.items():
             self.assertIsNotNone(candidate, cat)
             self.assertEqual(candidate[2], REPORT.VARIANTS[cat][1], cat)
             self.assertGreater(candidate[0], 1.05)
+
+    def test_optional_fpu_accepted_only_when_complete(self):
+        lines = complete_log()
+        optional = [
+            f"CSV,idct,fpu_approx,case{i},{64 + i},{i % 2},98000,100,980"
+            for i in range(REPORT.CASE_COUNT["idct"])
+        ]
+        lines[-2:-2] = optional
+        rows, errors = REPORT.parse_lines(lines)
+        self.assertFalse(errors)
+        ratios, missing = REPORT.inspect_matrix(rows)
+        self.assertFalse(missing)
+        self.assertEqual(len(rows), 500)
+        self.assertEqual(len(ratios["idct", "fpu_approx"]), 16)
+        partial = dict(rows)
+        del partial[("idct", "fpu_approx", "case0", 64, 0)]
+        _, missing = REPORT.inspect_matrix(partial)
+        self.assertTrue(any("idct/fpu_approx" in x for x in missing))
 
     def test_missing_single_variant_invalid(self):
         lines = [line for line in complete_log()
@@ -75,7 +93,7 @@ class TestVerdicts(unittest.TestCase):
             self.assertEqual(code, 0)
             self.assertIn("PASS: complete", capture.getvalue())
             bad = complete_log()
-            bad[-1] = "TEST: FAIL! (1/9 groups failed)"
+            bad[-1] = "LIBJPEG_PS2,DONE,FAIL,tests=8,passed=7,bench_failures=1"
             path.write_text("\n".join(bad) + "\n", encoding="utf8")
             with contextlib.redirect_stdout(io.StringIO()), \
                  contextlib.redirect_stderr(io.StringIO()):
