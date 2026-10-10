@@ -91,5 +91,11 @@ int ps2_bench_run_color(void);
 int ps2_bench_run_sampling(void);
 int ps2_bench_run_idct(void);
 int ps2_bench_run_quantize(void);
+#if defined(PS2_EXPERIMENTAL_VU0)
+int ps2_bench_run_vu0(void);
+#endif
+#if defined(PS2_EXPERIMENTAL_VIF0_DMA)
+int ps2_bench_run_vif0_dma(void);
+#endif
 int ps2_bench_execute(void);
 #endif
