@@ -24,7 +24,7 @@ jobs:
           CC: ${{ matrix.compiler }}
         run: |
           set -eu
-          for stem in color-math add-pack vector-offsets quantize; do
+          for stem in color-math color-table add-pack vector-offsets quantize; do
             "$CC" -O1 -g -std=c99 -Wall -Wextra -Werror \
               -fsanitize=address,undefined -fno-omit-frame-pointer \
               "simd/ps2/test-${stem}-host.c" -o "/tmp/ps2-test-${stem}"
