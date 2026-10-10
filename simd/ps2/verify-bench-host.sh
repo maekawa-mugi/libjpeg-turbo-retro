@@ -55,6 +55,10 @@ done
   simd/ps2/bench-vu-experiment.c
 "$cc" -std=c99 -Wall -Wextra -Werror -fsyntax-only \
   -DPS2_MMI_ALL_IN_ONE -I"$tmp" simd/ps2/test-suite.c
+"$cc" -std=c99 -O2 -Wall -Wextra -Werror \
+  -I simd/ps2 simd/ps2/test-idct-range-host.c \
+  -o "$tmp/test-idct-range"
+"$tmp/test-idct-range"
 bash -n simd/ps2/build-test-elf.sh
 bash -n simd/ps2/preflight-elf.sh
 bash simd/ps2/test-build-matrix-host.sh
