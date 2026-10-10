@@ -43,6 +43,12 @@ required=(
   jsimd_quantize_ps2mmi
   jsimd_quantize_legacy_ps2mmi
 )
+case "${PS2_VU0_IDCT:-OFF}" in
+  ON|on|TRUE|true|1) required+=(ps2_bench_run_vu0) ;;
+esac
+case "${PS2_VIF0_DMA:-OFF}" in
+  ON|on|TRUE|true|1) required+=(ps2_bench_run_vif0_dma) ;;
+esac
 for symbol in "${required[@]}"; do
   if ! grep -Fxq "$symbol" <<<"$symbol_table"; then
     echo "ELF preflight: missing symbol $symbol" >&2
