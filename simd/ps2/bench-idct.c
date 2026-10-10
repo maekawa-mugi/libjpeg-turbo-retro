@@ -322,7 +322,7 @@ ps2_bench_run_idct(void)
   /* Do not label this bit-exact.  More than 3 levels or an out-of-bounds
    * write means that the candidate cannot be included in the benchmark. */
   if (!fpu_guard_ok || fpu_max_diff > 3)
-    puts("SKIP,idct,fpu_approx,approx_quality_gate");
+    puts("QUALITY_OMIT,idct,fpu_approx,approx_quality_gate");
 #endif
 
   for (profile = 0; profile < 4; profile++)
