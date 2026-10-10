@@ -33,6 +33,7 @@ PS2_DECL_MERGED(pmul4)
 PS2_DECL_MERGED(pmul8)
 PS2_DECL_MERGED(addpack)
 PS2_DECL_MERGED(vector)
+PS2_DECL_MERGED(table)
 
 #define PS2_DECL_COLOR_ONE(v, name) \
   extern void ps2_bench_##v##_##name(JDIMENSION, JSAMPIMAGE, JDIMENSION, \
@@ -49,6 +50,7 @@ PS2_DECL_COLOR(scalar)
 PS2_DECL_COLOR(pmul4)
 PS2_DECL_COLOR(pmul8)
 PS2_DECL_COLOR(regpack)
+PS2_DECL_COLOR(table)
 
 extern void ps2_bench_idct_evenoff(ISLOW_MULT_TYPE *, JCOEFPTR,
                                     JSAMPARRAY, JDIMENSION);
