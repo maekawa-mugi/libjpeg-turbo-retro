@@ -4,6 +4,68 @@ This optional test executable links all experimental variants as **separate
 symbols**, so a PS2 owner can verify and compare them in **one boot**.  The
 normal JPEG library keeps experimental dispatch disabled by default.
 
+## Novelty experiment: VU0 arithmetic and VIF0 DMA upload
+
+The all-in-one ELF has two additional default-**OFF** benchmark experiments.
+They are deliberately separate from the exact integer IDCT contenders.
+
+```sh
+# Both experiments in the same ELF (no PR or runtime decoder changes):
+PS2_ALL_IN_ONE=ON PS2_VU0_IDCT=ON PS2_VIF0_DMA=ON \
+  bash simd/ps2/build-test-elf.sh
+
+# Only 4-lane VU0 macro-mode floating IDCT:
+PS2_ALL_IN_ONE=ON PS2_VU0_IDCT=ON bash simd/ps2/build-test-elf.sh
+
+# Only VIF0 normal DMA UNPACK upload to VU0 local memory:
+PS2_ALL_IN_ONE=ON PS2_VIF0_DMA=ON bash simd/ps2/build-test-elf.sh
+```
+
+**VU0 IDCT (`vu_idct`, experimental on-screen row 8):** Computes a real
+8x8 separable inverse DCT. The basis matrix matches the mathematical
+orthonormal DCT; each COP2 `LQC2/VMUL/VADD/SQC2` dot product performs four
+floating lanes at a time. The baseline `scalar_matrix` executes the
+**same float matrix**, including dequantization, two passes, transposition
+and output clamping. `vu0_macro` executes the same conversion but
+uses VU0 macro instructions for each 4-lane dot. The entire call,
+including staging, is timed. A separate 128-block differential test
+reports `max_abs_diff` and `different_pixels`; >3 levels disables
+timing. This is not IJG integer bit-exact and is not wired to normal
+JPEG decode. Comparing its timing against `idct/ijg_c` is informative,
+but those implementations do not perform identical arithmetic.
+
+**VIF0 DMA (`vif0_dma`, experimental on-screen row 9):** A real
+DMA channel-0 transfer with a two-quadword VIF0 command header
+(`STCYCL(1,1)`, `UNPACK V4_32`) and 256 bytes of aligned payload
+into VU0's memory-mapped data RAM. `cpu_store` writes the same words
+to the same VU0 address; `vif0_dma` includes cache flush, DMA start
+and bounded DMA/VIF completion waits in its measured interval.
+Both verify the same 256-byte data. This is a **transfer-only** benchmark,
+not a DMA-fed IDCT, and must not be reported as an IDCT speedup.
+The VIF0 DMA channel must be idle/owned exclusively during this
+opt-in experiment, which should be run in isolation from other VIF0 users.
+
+The GS display shows `vu_idct / vu0_macro / <ratio>x` and
+`vif0_dma / vif0_dma / <ratio>x` even when the ratio is less than 1.00.
+Detailed measurements are recorded as:
+
+```text
+APPROX,vu_idct,vu0_macro,128_blocks,max_abs_diff=...,different_pixels=...
+CSV,vu_idct,scalar_matrix,dense,8,0,...
+CSV,vu_idct,vu0_macro,dense,8,0,...
+PASS,vif0_dma,upload256,256_bytes_verified
+CSV,vif0_dma,cpu_store,upload256,256,0,...
+CSV,vif0_dma,vif0_dma,upload256,256,0,...
+```
+
+The required CSV matrix remains **484** rows, with 16 more if the
+earlier FPU experiment qualifies, 2 more per enabled experiment
+(488 total with VU0 and VIF0 DMA, 504 including qualifying FPU).
+The report parser prints both experimental ratios separately from
+the production JPEG candidate verdicts. Neither experiment is
+known to be faster on PCSX2 or actual EE until run. The VU0 instruction
+set and VIF0 DMA completion behavior must be verified on hardware.
+
 ## Exact IDCT direct contender and PS2 COP1 floating opt-in
 
 The one-boot IDCT matrix now includes `direct`, a separate bit-exact
