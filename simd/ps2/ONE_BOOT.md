@@ -4,6 +4,60 @@ This optional test executable links all experimental variants as **separate
 symbols**, so a PS2 owner can verify and compare them in **one boot**.  The
 normal JPEG library keeps experimental dispatch disabled by default.
 
+## Build every experiment profile and publish ELFs in the repository root
+
+```sh
+# Default, one command: 16 separately configured PS2 EE ELF files.
+bash simd/ps2/build-test-elf.sh
+
+# Optional, only the 8 combinations with IDCT even-off.
+PS2_BUILD_MATRIX=core bash simd/ps2/build-test-elf.sh
+
+# Optional, one manually configured binary.
+PS2_BUILD_MATRIX=single PS2_VU0_IDCT=ON PS2_VIF0_DMA=ON \
+  bash simd/ps2/build-test-elf.sh
+
+# Check published binaries and per-profile checksums:
+ls -lh libjpeg_turbo_mmi*.elf
+cat ps2-elf-manifest.csv
+```
+
+The default `PS2_BUILD_MATRIX=all` exhaustively combines 4 independent
+ON/OFF switches: `PS2_IDCT_EVEN`, `PS2_APPROX_FPU_IDCT`,
+`PS2_VU0_IDCT`, and `PS2_VIF0_DMA`. Each one-boot ELF continues
+to include every scalar, PMULTH, table, direct, and other existing
+internal timing contender. Matrix mode creates **16 independent CMake
+build directories** under `build-ps2/profiles/` (not 16 stale
+reconfigurations of one cache). The validated ELF binaries go directly to
+the **repository root**, with unambiguous names such as:
+
+```text
+libjpeg_turbo_mmi_evenoff_exact.elf
+libjpeg_turbo_mmi_evenoff_fpu.elf
+libjpeg_turbo_mmi_evenoff_exact_vu0.elf
+libjpeg_turbo_mmi_evenoff_exact_dma.elf
+...
+libjpeg_turbo_mmi_evenon_fpu_vu0_dma.elf
+libjpeg_turbo_mmi.elf
+ps2-elf-manifest.csv
+```
+
+The unqualified `libjpeg_turbo_mmi.elf` is a copy of
+`libjpeg_turbo_mmi_evenoff_exact.elf`, for older PCSX2 launch scripts.
+It is not an extra experimental configuration. The CSV manifest lists
+each profile, filename, four option values, and SHA-256. The output
+is published only **after** the cross-link and ELF preflight succeed.
+Any build failure ends the batch with a nonzero status. Old binaries
+from earlier runs can remain in the root, so use the new manifest to
+identify artifacts from the most recent **completed** batch.
+
+Set `PS2_BUILD_MATRIX=single` to preserve a manually selected flag
+combination. Matrix mode ignores individual values of these four
+toggles because it intentionally enumerates all possible combinations.
+`PS2_ALL_IN_ONE=OFF` is supported only with `single`.
+There is no need to copy the ELF out of `build-ps2` yourself.
+The PS2SDK build/bootstrap still occurs once per batch.
+
 ## Novelty experiment: VU0 arithmetic and VIF0 DMA upload
 
 The all-in-one ELF has two additional default-**OFF** benchmark experiments.
@@ -115,11 +169,11 @@ The full timing matrix contains 484 rows by default, or 500 when
 (`simd/ps2/analyze-bench.py`) accepts either complete matrix and
 supports the new 8/8 `LIBJPEG_PS2,DONE,PASS` transcript.
 
-## Build on your computer, then transfer just one ELF
+## Build on your computer, then choose a root-level ELF
 
 ```sh
 PS2_ALL_IN_ONE=ON bash simd/ps2/build-test-elf.sh
-# ELF: build-ps2/simd/libjpeg_turbo_mmi.elf
+# ELFs: ./libjpeg_turbo_mmi_evenoff_exact.elf, ..., ./libjpeg_turbo_mmi.elf
 ```
 
 From a clean WSL session with an installed EE compiler and PS2SDK:
@@ -136,7 +190,7 @@ git clone --single-branch --branch mmi \
   https://github.com/maekawa-mugi/libjpeg-turbo-retro.git
 cd libjpeg-turbo-retro
 PS2_ALL_IN_ONE=ON bash simd/ps2/build-test-elf.sh
-ls -lh build-ps2/simd/libjpeg_turbo_mmi.elf
+ls -lh libjpeg_turbo_mmi*.elf
 ~~~
 
 If PS2SDK is installed elsewhere, set PS2SDK to the actual directory
@@ -161,16 +215,12 @@ separately for PS2 Linux.
 
 ## One launch on PCSX2 or PS2 hardware
 
-Launch `ps2_mmi_test_suite.elf`.  The first seven groups are the
+Launch one of the generated `libjpeg_turbo_mmi_*.elf` files.  The first seven groups are the
 existing kernel correctness checks.  Group 8 encodes actual JPEG streams
 and compares RGB with all four 4-byte output orders.  Group 9 checks and
 times the experimental variants, existing sampling kernels and quantizer.
 
-Expected final summary:
-
-```text
-TEST: OK! (9/9 groups passed)
-```
+Expected final GS summary: `RESULT: PASS | tests 8/8 | bench failures 0`.
 
 Even if one group fails, later groups still run.  Failing variants are not
 timed.  The program stays on screen, including **seven representative
@@ -197,7 +247,7 @@ text file.  Back on the PC:
 python3 simd/ps2/analyze-bench.py pcsx2-console.txt
 ```
 
-The script requires **all 376 timing rows**, a complete 9/9 PASS, matching
+The script requires **all applicable timing rows** and a complete 8/8 PASS, matching
 workloads and matching post-timer output digests before recommending a
 candidate. It ranks by geometric-mean and worst-case speedup against pure C
 (or IJG C). By default a candidate must deliver >= 1.05x geometric mean
