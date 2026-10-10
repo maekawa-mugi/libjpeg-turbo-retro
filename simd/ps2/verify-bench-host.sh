@@ -58,6 +58,14 @@ done
 bash -n simd/ps2/build-test-elf.sh
 bash -n simd/ps2/preflight-elf.sh
 bash simd/ps2/test-build-matrix-host.sh
+# Execute the one-shot verdict using synthetic but internally consistent
+# timings, verifying strict IDCT excludes faster approximate FPU entries.
+"$cc" -std=c99 -O1 -Wall -Wextra -Werror \
+  -DPS2_BENCH_HOST_CHECK \
+  -DPS2_EXPERIMENTAL_VU0=1 -DPS2_EXPERIMENTAL_VIF0_DMA=1 \
+  -I"$tmp" simd/ps2/bench-suite.c \
+  simd/ps2/test-one-shot-verdict-host.c -o "$tmp/one-shot-verdict"
+"$tmp/one-shot-verdict"
 python3 -m py_compile simd/ps2/analyze-bench.py
 python3 simd/ps2/test_analyze_bench.py
 echo "PASS: native benchmark syntax, shell and verdict regression"
