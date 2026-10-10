@@ -84,6 +84,7 @@ screen_best(unsigned row, const char *category, const char *workload,
 /* Report the requested experimental contender even when its speedup is
  * below 1.00x, rather than displaying the scalar winner at 1.00x.
  */
+#if defined(PS2_EXPERIMENTAL_VU0) || defined(PS2_EXPERIMENTAL_VIF0_DMA)
 static void
 screen_experiment(unsigned row, unsigned group, const char *category,
                   const char *workload, unsigned width,
@@ -117,6 +118,7 @@ screen_experiment(unsigned row, unsigned group, const char *category,
     ps2_ui_bench_result(row, category, candidate, speed100, 1);
   }
 }
+#endif
 
 void
 ps2_bench_csv(const char *category, const char *variant,
