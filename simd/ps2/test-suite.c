@@ -51,7 +51,7 @@ int ps2_test_puts(const char *text)
 void ps2_ui_bench_progress(const char *category, const char *variant,
                            unsigned measured)
 {
-  scr_setXY(0,14);
+  scr_setXY(0,13);
   scr_setfontcolor(UI_WHITE);
   scr_printf("BENCH %-12.12s %-17.17s %4u samples       ",
              category,variant,measured);
@@ -60,8 +60,8 @@ void ps2_ui_bench_result(unsigned index, const char *category,
                          const char *winner, unsigned speed100,
                          int valid)
 {
-  if(index>=7)return;
-  scr_setXY(0,16+(int)index);
+  if(index>=9)return;
+  scr_setXY(0,15+(int)index);
   scr_setfontcolor(valid?UI_GREEN:UI_YELLOW);
   if(valid)
     scr_printf("%-13.13s %-16.16s %3u.%02ux       ",
@@ -103,9 +103,9 @@ int main(void)
     scr_setXY(0,5+(int)i);
     scr_printf("%2u  %-23.23s %-7s",i+1,tests[i].name,"WAIT");
   }
-  scr_setXY(0,15);
+  scr_setXY(0,14);
   scr_printf("%-13s %-16s %s","BENCH FAMILY","PROVISIONAL BEST","SPEED");
-  for(i=0;i<7;i++)
+  for(i=0;i<9;i++)
     ps2_ui_bench_result(i,"pending","--",0,0);
   ps2_test_puts("LIBJPEG_PS2,START,correctness+benchmark");
 #ifdef PS2_EXPERIMENTAL_IDCT_EVEN
@@ -151,17 +151,22 @@ int main(void)
 #endif
   }
 #ifdef PS2_MMI_ALL_IN_ONE
+#ifdef PS2_EXPERIMENTAL_VU0
+  ps2_bench_run_group(5);
+#endif
+#ifdef PS2_EXPERIMENTAL_VIF0_DMA
+  ps2_bench_run_group(6);
+#endif
   bench_failures=ps2_bench_end();
   ps2_bench_screen_summary();
 #endif
-  scr_setXY(0,23);
+  scr_setXY(0,24);
   scr_setfontcolor((failed||bench_failures)?UI_RED:UI_GREEN);
   scr_printf("RESULT: %s | tests %u/%u | bench failures %d     ",
              (failed||bench_failures)?"FAIL":"PASS",
              checks-failed,checks,bench_failures);
-  scr_setXY(0,24);
-  scr_setfontcolor(UI_WHITE);
-  scr_printf("COMPLETE | detailed validation and CSV on stdout");
+  /* Preserve all nine score rows and the final PASS/FAIL row on GS.
+   * The detailed completion banner is available in console CSV only. */
   printf("LIBJPEG_PS2,DONE,%s,tests=%u,passed=%u,bench_failures=%d\n",
          (failed||bench_failures)?"FAIL":"PASS",checks,checks-failed,
          bench_failures);
