@@ -225,7 +225,15 @@ default_decompress_parms(j_decompress_ptr cinfo)
   cinfo->output_gamma = 1.0;
   cinfo->buffered_image = FALSE;
   cinfo->raw_data_out = FALSE;
+#ifdef PS2_APPROX_FPU_IDCT
+  /* PS2 COP1 is single-precision and not fully IEEE 754 compliant.
+   * This flag changes only the decoder default, not encoding or callers
+   * that explicitly select JDCT_ISLOW/JDCT_IFAST/JDCT_FLOAT.
+   */
+  cinfo->dct_method = JDCT_FLOAT;
+#else
   cinfo->dct_method = JDCT_DEFAULT;
+#endif
   cinfo->do_fancy_upsampling = TRUE;
   cinfo->do_block_smoothing = TRUE;
   cinfo->quantize_colors = FALSE;
