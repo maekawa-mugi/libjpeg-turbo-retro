@@ -70,6 +70,31 @@ PCSX2, and compare `CSV,color,table` / `CSV,merged,table` to
 `test-color-table-host.c` checks all 65,536 chroma byte pairs against the
 IJG reference math (and representative luma/clipping cases).
 
+## One command, all PS2 ELF profiles at repository root
+
+```sh
+bash simd/ps2/build-test-elf.sh
+ls -lh ./libjpeg_turbo_mmi*.elf
+cat ./ps2-elf-manifest.csv
+```
+
+The default build produces **16 ELFs** at repository root, one for every
+ON/OFF combination of integer IDCT even rotation, approximate native
+FPU IDCT, VU0 macro-mode IDCT, and VIF0 DMA transfer experiment.
+Internal `scalar`, `pmul4`, `pmul8`, `table`, `batch`, and
+`direct` benchmark candidates remain combined inside each ELF.
+The plain `libjpeg_turbo_mmi.elf` is an alias copy of the exact
+`evenoff` profile. Intermediate CMake state is kept under
+`build-ps2/profiles/<profile>/`, but no manual copying is needed.
+
+`PS2_BUILD_MATRIX=core` builds 8 profiles (even-off only);
+`PS2_BUILD_MATRIX=single` builds just one with the old manual flags.
+The file `ps2-elf-manifest.csv` lists root filenames and SHA-256 sums.
+An ELF is published only after linking and the architecture/symbol
+preflight pass. Running host-only `bash simd/ps2/test-build-matrix-host.sh`
+checks all 16 combinations with a fake CMake toolchain; it does not
+replace an actual PS2 cross-compile or PCSX2 verification.
+
 ## Optional VU0 and VIF0 DMA novelty benchmarks
 
 Set `PS2_VU0_IDCT=ON` and/or `PS2_VIF0_DMA=ON` when running
