@@ -412,7 +412,19 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
    * and emit the identical eight rows.  The scalar fallback handles
    * non-16-byte-aligned coefficient buffers.
    */
+  /* Dense blocks almost always have a nonzero AC coefficient in the
+   * first positions.  Avoid the eight 128-bit full-block OR loads in
+   * that case.  For DC-only blocks, the full MMI check remains mandatory.
+   * This is a separate timing contender because extra scalar probes cost
+   * cycles for DC-only and extremely sparse blocks.
+   */
+#if defined(PS2_IDCT_EARLY_AC)
+  if (coef_block[1] == 0 && coef_block[2] == 0 &&
+      coef_block[3] == 0 && coef_block[4] == 0 &&
+      ps2_dc_only(coef_block)) {
+#else
   if (ps2_dc_only(coef_block)) {
+#endif
     ISLOW_MULT_TYPE *q = (ISLOW_MULT_TYPE *)dct_table;
     JLONG dc = LEFT_SHIFT((JLONG)coef_block[0] * q[0], PASS1_BITS);
     JSAMPLE value =
