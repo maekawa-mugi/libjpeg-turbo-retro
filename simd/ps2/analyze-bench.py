@@ -26,6 +26,12 @@ VARIANTS = {
     "quantize": ("ijg_c", "mmi", "regpipe"),
 }
 OPTIONAL_VARIANTS = {"idct": ("fpu_approx",)}
+# These are isolated experiments, NOT automatically deployable JPEG winners.
+# VIF0 DMA compares upload mechanisms, not two complete IDCTs.
+EXPERIMENTS = {
+    "vu_idct": ("scalar_matrix", "vu0_macro"),
+    "vif0_dma": ("cpu_store", "vif0_dma"),
+}
 
 CASE_COUNT = {
     "merged": 32,
@@ -35,6 +41,8 @@ CASE_COUNT = {
     "downsample": 8,
     "idct": 16,
     "quantize": 12,
+    "vu_idct": 1,
+    "vif0_dma": 1,
 }
 
 
@@ -67,8 +75,8 @@ def parse_lines(lines):
             failures.append(f"line {line_number}: expected 8 CSV fields")
             continue
         cat, variant, workload = fields[:3]
-        if (cat not in VARIANTS or
-                variant not in VARIANTS[cat] + OPTIONAL_VARIANTS.get(cat, ())):
+        known = VARIANTS.get(cat, ()) + OPTIONAL_VARIANTS.get(cat, ()) + EXPERIMENTS.get(cat, ())
+        if not known or variant not in known:
             failures.append(f"line {line_number}: unexpected variant {cat}/{variant}")
             continue
         try:
@@ -97,7 +105,11 @@ def parse_lines(lines):
 def inspect_matrix(rows):
     failures = []
     ratios = collections.defaultdict(list)
-    for category, required in VARIANTS.items():
+    categories = dict(VARIANTS)
+    for category, names in EXPERIMENTS.items():
+        if any(cat == category for cat, _, _, _, _ in rows):
+            categories[category] = names
+    for category, required in categories.items():
         optional = tuple(
             v for v in OPTIONAL_VARIANTS.get(category, ())
             if any(cat == category and variant == v
@@ -176,6 +188,11 @@ def main(argv=None):
         for v in optional
         if any(cat == k and variant == v for cat, variant, _, _, _ in rows)
     )
+    expected += sum(
+        CASE_COUNT[k] * len(names)
+        for k, names in EXPERIMENTS.items()
+        if any(cat == k for cat, _, _, _, _ in rows)
+    )
     print("Timing rows:", len(rows), "expected:", expected)
     print()
     for category, variants in VARIANTS.items():
@@ -193,6 +210,16 @@ def main(argv=None):
             print(f"  VERDICT: RETAIN {variants[0]} (insufficient advantage)")
         print()
 
+    for category, (baseline, contender) in EXPERIMENTS.items():
+        points = ratios[(category, contender)]
+        if points:
+            ratio = points[0]
+            print(f"[EXPERIMENT ONLY] {category}: {contender} "
+                  f"vs {baseline} = {ratio:.3f}x "
+                  "(not a production JPEG recommendation)")
+        else:
+            print(f"[EXPERIMENT ONLY] {category}: disabled/not measured")
+    print()
     if failures:
         print("INVALID SESSION: do not use timing to select a kernel",
               file=sys.stderr)
