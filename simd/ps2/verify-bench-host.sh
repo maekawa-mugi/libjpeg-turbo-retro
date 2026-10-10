@@ -44,6 +44,10 @@ for file in "${files[@]}"; do
   "$cc" -std=c99 -Wall -Wextra -Werror -fsyntax-only \
     -DPS2_BENCH_HOST_CHECK -I"$tmp" "$file"
 done
+# Verify the non-bit-exact FPU contender's optional code path as well.
+"$cc" -std=c99 -Wall -Wextra -Werror -fsyntax-only \
+  -DPS2_BENCH_HOST_CHECK -DPS2_APPROX_FPU_IDCT \
+  -I"$tmp" simd/ps2/bench-idct.c
 "$cc" -std=c99 -Wall -Wextra -Werror -fsyntax-only \
   -DPS2_MMI_ALL_IN_ONE -I"$tmp" simd/ps2/test-suite.c
 bash -n simd/ps2/build-test-elf.sh
