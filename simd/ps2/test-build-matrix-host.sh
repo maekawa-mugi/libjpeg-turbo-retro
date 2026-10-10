@@ -47,6 +47,8 @@ run() {
 # Simulate outputs left behind by the old 16-profile matrix.
 printf stale > "$temp/project/libjpeg_turbo_mmi_evenoff_exact.elf"
 printf stale > "$temp/project/libjpeg_turbo_mmi_evenon_fpu_vu0_dma.elf"
+mkdir -p "$temp/project/build-ps2/profiles/evenoff_exact/simd"
+printf stale > "$temp/project/build-ps2/profiles/evenoff_exact/simd/libjpeg_turbo_mmi.elf"
 printf stale > "$temp/project/ps2-elf-manifest.csv"
 
 run > "$temp/one.log"
@@ -55,6 +57,7 @@ run > "$temp/one.log"
 [[ ! -e "$temp/project/ps2-elf-manifest.csv" ]]
 [[ ! -e "$temp/project/libjpeg_turbo_mmi_evenoff_exact.elf" ]]
 [[ ! -e "$temp/project/libjpeg_turbo_mmi_evenon_fpu_vu0_dma.elf" ]]
+[[ ! -d "$temp/project/build-ps2/profiles" ]]
 [[ $(find "$temp/project/build-ps2" -mindepth 1 -maxdepth 1 -type d | wc -l) -eq 1 ]]
 output="$temp/project/libjpeg_turbo_mmi.elf"
 for switch in \
