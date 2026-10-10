@@ -126,6 +126,13 @@ decode_jpeg(const unsigned char *data, unsigned long bytes,
     jpeg_destroy_decompress(&c);
     return 1;
   }
+#ifdef PS2_APPROX_FPU_IDCT
+  if (c.dct_method != JDCT_FLOAT) {
+    puts("FAIL,jpeg_stream,fpu_default_not_selected");
+    jpeg_destroy_decompress(&c);
+    return 1;
+  }
+#endif
   c.out_color_space = color;
   c.dct_method = dct;
   c.do_fancy_upsampling = fancy ? TRUE : FALSE;
@@ -206,6 +213,11 @@ ps2_test_jpeg_stream(void)
     { "XRGB", JCS_EXT_XRGB, { 1, 2, 3, 0 } }
   };
   unsigned wi, sub, fancy, dct, format, comparisons = 0;
+#ifdef PS2_APPROX_FPU_IDCT
+  const unsigned idct_variants = 3;
+#else
+  const unsigned idct_variants = 2;
+#endif
   int failures = 0;
   for (wi = 0; wi < sizeof(widths) / sizeof(widths[0]); wi++) {
     unsigned width = widths[wi];
@@ -224,9 +236,10 @@ ps2_test_jpeg_stream(void)
         continue;
       }
       for (fancy = 0; fancy < 2; fancy++)
-        for (dct = 0; dct < 2; dct++) {
+        for (dct = 0; dct < idct_variants; dct++) {
           decoded_image reference;
-          J_DCT_METHOD method = dct ? JDCT_IFAST : JDCT_ISLOW;
+          J_DCT_METHOD method = dct == 2 ? JDCT_FLOAT :
+                                dct ? JDCT_IFAST : JDCT_ISLOW;
           if (decode_jpeg(jpeg_bytes, jpeg_size, JCS_RGB,
                           (int)fancy, method, &reference)) {
             failures++;
@@ -260,7 +273,7 @@ ps2_test_jpeg_stream(void)
   if (failures)
     printf("FAIL,jpeg_stream,errors=%d,compared=%u\n", failures, comparisons);
   else
-    printf("PASS,jpeg_stream,layouts=%u,8_sizes_3_subsampling_2_fancy_2_idct\n",
-           comparisons);
+    printf("PASS,jpeg_stream,layouts=%u,8_sizes_3_subsampling_2_fancy_%u_idct\n",
+           comparisons, idct_variants);
   return failures ? 1 : 0;
 }
