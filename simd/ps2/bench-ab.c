@@ -46,14 +46,18 @@ median_even(uint64_t *samples, unsigned count)
   return (samples[count / 2 - 1] + samples[count / 2]) / 2u;
 }
 
-int
-ps2_bench_compare(const char *category, const char *workload,
-                  unsigned width, int alignment,
-                  const ps2_bench_variant *variants, unsigned n,
-                  unsigned repetitions)
+/* The opt-in FPU IDCT is deliberately not byte-exact with IJG.
+ * Validate each contender's output stability, but allow only the final
+ * contender to have a different digest.  Other contenders MUST match.
+ */
+static int
+bench_compare_internal(const char *category, const char *workload,
+                       unsigned width, int alignment,
+                       const ps2_bench_variant *variants, unsigned n,
+                       unsigned repetitions, int approximate_last)
 {
   uint64_t samples[BENCH_MAX_VARIANTS][BENCH_MAX_SAMPLES];
-  uint32_t expected = 0;
+  uint32_t expected[BENCH_MAX_VARIANTS] = { 0 };
   unsigned sample_count, j, i, sample, step, k;
   int failures = 0;
 
@@ -75,12 +79,12 @@ ps2_bench_compare(const char *category, const char *workload,
       variants[i].reset(variants[i].context);
     variants[i].run(variants[i].context);
     digest = variants[i].digest(variants[i].context);
-    if (i == 0)
-      expected = digest;
-    else if (digest != expected) {
+    expected[i] = digest;
+    if (i != 0 && !(approximate_last && i == n - 1) &&
+        digest != expected[0]) {
       printf("FAIL,ab_digest,%s,%s,%s,expected=%08lx,actual=%08lx\n",
              category, workload, variants[i].name,
-             (unsigned long)expected, (unsigned long)digest);
+             (unsigned long)expected[0], (unsigned long)digest);
       failures++;
     }
   }
@@ -108,11 +112,11 @@ ps2_bench_compare(const char *category, const char *workload,
       elapsed = GetTimerSystemTime() - before;
       __asm__ volatile("" : : : "memory");
       digest = variants[i].digest(variants[i].context);
-      if (elapsed == 0 || digest != expected) {
+      if (elapsed == 0 || digest != expected[i]) {
         printf("FAIL,ab_sample,%s,%s,%s,sample=%u,ticks=%llu,digest=%08lx,expected=%08lx\n",
                category, workload, variants[i].name, sample,
                (unsigned long long)elapsed, (unsigned long)digest,
-               (unsigned long)expected);
+               (unsigned long)expected[i]);
         failures++;
       }
       samples[i][sample] = elapsed;
@@ -128,7 +132,27 @@ ps2_bench_compare(const char *category, const char *workload,
     uint64_t median = median_even(samples[i], sample_count);
     ps2_bench_csv(category, variants[i].name, workload,
                   width, alignment, median, repetitions);
-    bench_sink += (uint32_t)median ^ expected;
+    bench_sink += (uint32_t)median ^ expected[i];
   }
   return 0;
+}
+
+int
+ps2_bench_compare(const char *category, const char *workload,
+                  unsigned width, int alignment,
+                  const ps2_bench_variant *variants, unsigned n,
+                  unsigned repetitions)
+{
+  return bench_compare_internal(category, workload, width, alignment,
+                                variants, n, repetitions, 0);
+}
+
+int
+ps2_bench_compare_approx_last(const char *category, const char *workload,
+                              unsigned width, int alignment,
+                              const ps2_bench_variant *variants, unsigned n,
+                              unsigned repetitions)
+{
+  return bench_compare_internal(category, workload, width, alignment,
+                                variants, n, repetitions, 1);
 }
