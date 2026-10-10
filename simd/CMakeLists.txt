@@ -816,7 +816,7 @@ if(WITH_PS2_MMI_TESTS)
         $<TARGET_OBJECTS:ps2_bench_color_${PS2_BENCH_VARIANT}>)
     endforeach()
 
-    foreach(PS2_BENCH_VARIANT evenoff evenon batch direct)
+    foreach(PS2_BENCH_VARIANT evenoff evenon batch direct lut lut_norow)
       set(variant_source
         "${CMAKE_CURRENT_BINARY_DIR}/ps2-bench-idct-${PS2_BENCH_VARIANT}.c")
       configure_file(ps2/bench-idct-variant.c.in "${variant_source}" @ONLY)
@@ -832,6 +832,16 @@ if(WITH_PS2_MMI_TESTS)
       if(PS2_BENCH_VARIANT STREQUAL "direct")
         target_compile_definitions(ps2_bench_idct_direct
           PRIVATE PS2_IDCT_DIRECT=1)
+      endif()
+      if(PS2_BENCH_VARIANT STREQUAL "lut" OR
+         PS2_BENCH_VARIANT STREQUAL "lut_norow")
+        target_compile_definitions(ps2_bench_idct_${PS2_BENCH_VARIANT}
+          PRIVATE PS2_IDCT_DIRECT=1 PS2_IDCT_FAST_DQ=1
+                  PS2_IDCT_RANGE_LUT=1)
+      endif()
+      if(PS2_BENCH_VARIANT STREQUAL "lut_norow")
+        target_compile_definitions(ps2_bench_idct_lut_norow
+          PRIVATE NO_ZERO_ROW_TEST=1)
       endif()
       list(APPEND PS2_BENCH_OBJECTS
         $<TARGET_OBJECTS:ps2_bench_idct_${PS2_BENCH_VARIANT}>)
