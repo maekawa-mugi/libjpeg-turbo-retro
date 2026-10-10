@@ -841,7 +841,7 @@ if(WITH_PS2_MMI_TESTS)
       endif()
       if(PS2_BENCH_VARIANT STREQUAL "lut_norow")
         target_compile_definitions(ps2_bench_idct_lut_norow
-          PRIVATE NO_ZERO_ROW_TEST=1)
+          PRIVATE NO_ZERO_ROW_TEST=1 PS2_IDCT_EARLY_AC=1)
       endif()
       list(APPEND PS2_BENCH_OBJECTS
         $<TARGET_OBJECTS:ps2_bench_idct_${PS2_BENCH_VARIANT}>)
