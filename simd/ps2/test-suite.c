@@ -27,6 +27,7 @@ int ps2_bench_run_group(unsigned);
 void ps2_bench_skip_group(unsigned);
 int ps2_bench_end(void);
 void ps2_bench_screen_summary(void);
+void ps2_bench_one_shot_verdict(int valid);
 #endif
 
 /* Never stream arbitrary test text to the GS. Long diagnostic lines used
@@ -96,7 +97,7 @@ int main(void)
   scr_setfontcolor(UI_WHITE);
   scr_printf("LIBJPEG-TURBO RETRO | PS2 EE MMI | VALIDATION + BENCHMARK");
   scr_setXY(0,1);
-  scr_printf("Real MMI vs portable C | tests + timings in one ELF");
+  scr_printf("One ELF: exact, FPU~ / VU0 / VIF0 DMA                   ");
   scr_setXY(0,3);
   scr_printf("%-3s %-23s %-7s","NO","CORRECTNESS TEST","RESULT");
   for(i=0;i<checks;i++){
@@ -161,6 +162,7 @@ int main(void)
 #endif
   bench_failures=ps2_bench_end();
   ps2_bench_screen_summary();
+  ps2_bench_one_shot_verdict(!failed && !bench_failures);
 #endif
   scr_setXY(0,24);
   scr_setfontcolor((failed||bench_failures)?UI_RED:UI_GREEN);
