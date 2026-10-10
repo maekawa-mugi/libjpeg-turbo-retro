@@ -115,6 +115,14 @@ initialize_idct(void)
   cinfo.sample_range_limit = sample_range + 256;
   for (i = 0; i < 1024; i++)
     sample_range[256 + 128 + i] = range_limit_value((int)i);
+  /* _jpeg_idct_islow uses IDCT_range_limit(cinfo), i.e. the base
+   * pointer + CENTERJSAMPLE. _jpeg_idct_float reads the BASE pointer
+   * directly. The shared 1024-byte overlapping table must also fill
+   * base[0..127] with identity samples, just like jdmaster.c.
+   * Omitting these bytes created bogus 255-level FPU mismatches.
+   */
+  for (i = 0; i < 128; i++)
+    sample_range[256 + i] = (JSAMPLE)i;
   for (i = 0; i < 8; i++) {
     refrows[i] = refmem[i];
     outrows[0][i] = outmem[0][i];
