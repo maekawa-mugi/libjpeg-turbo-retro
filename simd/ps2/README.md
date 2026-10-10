@@ -70,30 +70,31 @@ PCSX2, and compare `CSV,color,table` / `CSV,merged,table` to
 `test-color-table-host.c` checks all 65,536 chroma byte pairs against the
 IJG reference math (and representative luma/clipping cases).
 
-## One command, all PS2 ELF profiles at repository root
+## One-command, one-ELF PS2 benchmark
 
 ```sh
 bash simd/ps2/build-test-elf.sh
-ls -lh ./libjpeg_turbo_mmi*.elf
-cat ./ps2-elf-manifest.csv
+ls -lh ./libjpeg_turbo_mmi.elf
 ```
 
-The default build produces **16 ELFs** at repository root, one for every
-ON/OFF combination of integer IDCT even rotation, approximate native
-FPU IDCT, VU0 macro-mode IDCT, and VIF0 DMA transfer experiment.
-Internal `scalar`, `pmul4`, `pmul8`, `table`, `batch`, and
-`direct` benchmark candidates remain combined inside each ELF.
-The plain `libjpeg_turbo_mmi.elf` is an alias copy of the exact
-`evenoff` profile. Intermediate CMake state is kept under
-`build-ps2/profiles/<profile>/`, but no manual copying is needed.
+One **`libjpeg_turbo_mmi.elf` at repository root** contains every
+exact integer IDCT (`ijg_c/evenoff/evenon/batch/direct`), all existing
+color/merged and quantize variants, the quality-gated float COP1
+`fpu_approx`, VU0 macro-mode float IDCT, and VIF0 DMA upload
+comparison. The library default remains exact integer decoding.
+All experimental variants are evaluated without another build or ELF.
 
-`PS2_BUILD_MATRIX=core` builds 8 profiles (even-off only);
-`PS2_BUILD_MATRIX=single` builds just one with the old manual flags.
-The file `ps2-elf-manifest.csv` lists root filenames and SHA-256 sums.
-An ELF is published only after linking and the architecture/symbol
-preflight pass. Running host-only `bash simd/ps2/test-build-matrix-host.sh`
-checks all 16 combinations with a fake CMake toolchain; it does not
-replace an actual PS2 cross-compile or PCSX2 verification.
+The GS screen prints a final short verdict (fastest **bit-exact** IDCT,
+relative approximate FPU speed, VU0 vs float C, and DMA vs CPU upload).
+The recommendation stays provisional until full validation on a real
+EE; DMA is not a JPEG IDCT implementation. Complete CSV and pixel-error
+measurements remain on stdout.
+
+The old 16-ELF profile generator has been removed. The script keeps
+intermediates in `build-ps2/one-elf/` and cleans only old generated
+profile binaries after a successful build. Run
+`bash simd/ps2/verify-bench-host.sh` for host-only tests;
+a PS2 cross compiler is needed to produce/validate the actual ELF.
 
 ## Optional VU0 and VIF0 DMA novelty benchmarks
 
@@ -135,7 +136,7 @@ implement IEEE 754.  The opt-in does not affect encoder defaults and callers
 that explicitly choose an IDCT method still take precedence.
 
 ```sh
-PS2_ALL_IN_ONE=ON PS2_APPROX_FPU_IDCT=ON bash simd/ps2/build-test-elf.sh
+bash simd/ps2/build-test-elf.sh
 ```
 
 The FPU test prints max absolute pixel difference and differing-pixel count,
