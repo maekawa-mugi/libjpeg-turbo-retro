@@ -57,6 +57,9 @@ class TestVerdicts(unittest.TestCase):
         self.assertFalse(missing)
         self.assertEqual(len(rows), 500)
         self.assertEqual(len(ratios["idct", "fpu_approx"]), 16)
+        self.assertNotEqual(REPORT.verdicts(ratios)["idct"][1][2],
+                            "fpu_approx",
+                            "approximate FPU must never win exact IDCT")
         partial = dict(rows)
         del partial[("idct", "fpu_approx", "case0", 64, 0)]
         _, missing = REPORT.inspect_matrix(partial)
