@@ -4,6 +4,51 @@ This optional test executable links all experimental variants as **separate
 symbols**, so a PS2 owner can verify and compare them in **one boot**.  The
 normal JPEG library keeps experimental dispatch disabled by default.
 
+## Exact IDCT direct contender and PS2 COP1 floating opt-in
+
+The one-boot IDCT matrix now includes `direct`, a separate bit-exact
+implementation of the existing Loeffler integer IDCT.  The `direct`
+contender keeps the MMI global DC-only check but avoids the 64-element
+pre-dequantization buffer and the repeated PMULTH/HI/LO/temporary-array
+round trips in the non-DC path.  It instead dequantizes only the coefficients
+actually needed per active column and computes the rotators and final
+butterflies directly with IJG fixed-point arithmetic.  Like the other
+integer contenders, it is compared **byte for byte** against `ijg_c`
+in all 2048 block cases before its timing can be accepted.  It remains
+benchmark-only; do not assume it beats `ijg_c` without the console CSV.
+
+The explicit opt-in `WITH_PS2_APPROX_FPU_IDCT=ON` changes the
+**default decoder** IDCT to the existing IJG AA&N floating-point inverse
+transform (`JDCT_FLOAT`) on the EE's COP1 hardware.  It is **not** a
+bit-exact PS2 MMI kernel and is not a change to JPEG compression.
+The R5900 FPU supports only single precision, truncation-style rounding,
+and non-IEEE exceptional/denormal behavior.  Applications selecting their
+own `cinfo.dct_method` continue to override the new default.  The
+accuracy/quality impact must be judged on actual output images.
+
+```sh
+# Exact integer IDCT contenders (default) including direct:
+PS2_ALL_IN_ONE=ON bash simd/ps2/build-test-elf.sh
+
+# Optional native float decoder + fpu_approx timing candidate:
+PS2_ALL_IN_ONE=ON PS2_APPROX_FPU_IDCT=ON bash simd/ps2/build-test-elf.sh
+```
+
+In float mode the log prints
+`APPROX,idct,fpu_approx,2048_cases,max_abs_diff=...,different_pixels=...,guards=PASS`.
+This is not an integer correctness PASS.  The `fpu_approx` candidate
+joins the timing matrix only if all 2048 cases have intact sentinels
+and a maximum absolute pixel difference of 3 or less.  Its per-variant
+output digest must remain stable in the timed repeats, but it is
+allowed to differ from IJG's strict integer digest; all other
+contenders still require byte-exact agreement.  JPEG-stream layout
+testing adds `JDCT_FLOAT` when the option is enabled.
+
+The full timing matrix contains 484 rows by default, or 500 when
+`fpu_approx` passes its quality gate.  The verdict parser
+(`simd/ps2/analyze-bench.py`) accepts either complete matrix and
+supports the new 8/8 `LIBJPEG_PS2,DONE,PASS` transcript.
+
 ## Build on your computer, then transfer just one ELF
 
 ```sh
@@ -169,7 +214,7 @@ both C and the previous MMI implementations:
   Unsafe ranges and unaligned buffers retain the reference/fallback paths.
   The old implementation remains the `mmi` contender.
 
-No SPR is used.  The complete CSV matrix is now 420 rows; use the matching
+No SPR is used.  The complete CSV matrix is now 484 rows by default (500 with qualifying FPU); use the matching
 `analyze-bench.py`.  All three candidates are automatically linked into
 `PS2_ALL_IN_ONE=ON` builds without additional flags.  The new color and
 IDCT candidates are benchmark-only until their measured performance is
