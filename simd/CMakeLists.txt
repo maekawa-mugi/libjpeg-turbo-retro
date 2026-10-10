@@ -624,7 +624,9 @@ option(WITH_PS2_APPROX_FPU_IDCT
   "Default JPEG decoding to native PS2 single-precision floating IDCT (not IJG bit-exact)"
   OFF)
 if(WITH_PS2_APPROX_FPU_IDCT)
-  set(PS2_APPROX_FPU_IDCT 1)
+  # jconfig.h is configured by the parent CMake directory after
+  # add_subdirectory(simd); propagate the switch beyond this scope.
+  set(PS2_APPROX_FPU_IDCT 1 PARENT_SCOPE)
   message(WARNING
     "PS2 native FPU IDCT enabled: JPEG decoding may differ by one or more pixels; "
     "the EE FPU is not fully IEEE-754 conforming")
