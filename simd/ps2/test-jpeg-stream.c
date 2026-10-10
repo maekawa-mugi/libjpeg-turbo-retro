@@ -126,7 +126,7 @@ decode_jpeg(const unsigned char *data, unsigned long bytes,
     jpeg_destroy_decompress(&c);
     return 1;
   }
-#ifdef PS2_APPROX_FPU_IDCT
+#ifdef PS2_APPROX_FPU_DECODER_DEFAULT
   if (c.dct_method != JDCT_FLOAT) {
     puts("FAIL,jpeg_stream,fpu_default_not_selected");
     jpeg_destroy_decompress(&c);
