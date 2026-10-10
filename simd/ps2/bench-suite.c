@@ -53,6 +53,13 @@ screen_best(unsigned row, const char *category, const char *workload,
            timings[i].ticks / timings[i].repeats : 0;
     if (!cost)
       continue;
+    /* Float IDCT is approximate, so NEVER rank it as a bit-exact
+     * integer IDCT contender, even if its timing beats every MMI kernel.
+     * Its own relative speed is printed in the experimental verdict.
+     */
+    if (!strcmp(category, "idct") &&
+        !strcmp(timings[i].variant, "fpu_approx"))
+      continue;
     if (!strcmp(timings[i].variant, baseline))
       base = cost;
     if (cost < best) {
@@ -154,6 +161,148 @@ ps2_bench_screen_summary(void)
   screen_experiment(8, 6, "vif0_dma", "upload256", 256,
                     "cpu_store", "vif0_dma");
 #endif
+}
+
+/* Results are printed only after the complete correctness and timing
+ * matrix. Keep experimental speedups in their own domains: VU0 vs float
+ * matrix, DMA vs CPU upload, COP1 float vs IJG integer (approximate).
+ */
+static uint64_t
+find_cost(const char *cat, const char *variant,
+          const char *workload, unsigned width)
+{
+  unsigned i;
+  for (i = 0; i < timing_count; i++)
+    if (!strcmp(timings[i].category, cat) &&
+        !strcmp(timings[i].variant, variant) &&
+        !strcmp(timings[i].workload, workload) &&
+        timings[i].width == width && timings[i].alignment == 0 &&
+        timings[i].repeats)
+      return timings[i].ticks / timings[i].repeats;
+  return 0;
+}
+
+static unsigned
+relative100(uint64_t base, uint64_t candidate)
+{
+  if (!base || !candidate)
+    return 0;
+  return (unsigned)(base * 100u / candidate);
+}
+
+void
+ps2_bench_one_shot_verdict(int valid)
+{
+  static const char *const exact_names[] = {
+    "ijg_c", "evenoff", "evenon", "batch", "direct"
+  };
+  uint64_t ijg, best_cost, candidate;
+  const char *best_name = "N/A";
+  unsigned i, exact_ratio, fpu_ratio = 0, vu_ratio = 0, dma_ratio = 0;
+  const char *choice;
+  if (!valid) {
+    ps2_test_printf("CONCLUSION,INVALID,fix_correctness_or_benchmark_first\n");
+    scr_setXY(0,1);
+    scr_setfontcolor(0x000000ffu);
+    scr_printf("VERDICT: INVALID - check failing test or benchmark          ");
+    scr_setXY(0,2);
+    scr_printf("Detailed FAIL lines are on stdout                            ");
+    scr_setXY(0,13);
+    scr_printf("NO SPEED RECOMMENDATION UNTIL ALL CHECKS PASS                 ");
+    return;
+  }
+
+  ijg = find_cost("idct", "ijg_c", "dense", 8);
+  best_cost = ijg;
+  if (ijg && (passed_groups & (1u << 2))) {
+    best_name = "ijg_c";
+    for (i = 1; i < sizeof(exact_names) / sizeof(exact_names[0]); i++) {
+      candidate = find_cost("idct", exact_names[i], "dense", 8);
+      if (candidate && candidate < best_cost) {
+        best_cost = candidate;
+        best_name = exact_names[i];
+      }
+    }
+    fpu_ratio = relative100(ijg, find_cost("idct", "fpu_approx",
+                                          "dense", 8));
+  }
+  exact_ratio = relative100(ijg, best_cost);
+
+#ifdef PS2_EXPERIMENTAL_VU0
+  if (passed_groups & (1u << 5))
+    vu_ratio = relative100(find_cost("vu_idct", "scalar_matrix",
+                                    "dense", 8),
+                           find_cost("vu_idct", "vu0_macro", "dense", 8));
+#endif
+#ifdef PS2_EXPERIMENTAL_VIF0_DMA
+  if (passed_groups & (1u << 6))
+    dma_ratio = relative100(find_cost("vif0_dma", "cpu_store",
+                                     "upload256", 256),
+                            find_cost("vif0_dma", "vif0_dma",
+                                      "upload256", 256));
+#endif
+
+  if (!exact_ratio) {
+    ps2_test_printf("CONCLUSION,INVALID,missing_exact_IDCT_reference\n");
+    scr_setXY(0,1);
+    scr_printf("VERDICT: INCOMPLETE IDCT BENCHMARK                           ");
+    return;
+  }
+
+  scr_setXY(0,1);
+  scr_setfontcolor(0x0000ff00u);
+  if (fpu_ratio)
+    scr_printf("EXACT IDCT %-8s %u.%02ux | FPU~ %u.%02ux                  ",
+               best_name, exact_ratio / 100, exact_ratio % 100,
+               fpu_ratio / 100, fpu_ratio % 100);
+  else
+    scr_printf("EXACT IDCT %-8s %u.%02ux | FPU~ not qualified             ",
+               best_name, exact_ratio / 100, exact_ratio % 100);
+  scr_setXY(0,2);
+  scr_setfontcolor(0x00ffffffu);
+  if (vu_ratio && dma_ratio)
+    scr_printf("VU0/float %u.%02ux | DMA/upload %u.%02ux (NOT JPEG IDCT)   ",
+               vu_ratio / 100, vu_ratio % 100,
+               dma_ratio / 100, dma_ratio % 100);
+  else
+    scr_printf("VU0/float: %s | DMA/upload: %s (see stdout)               ",
+               vu_ratio ? "MEASURED" : "N/A",
+               dma_ratio ? "MEASURED" : "N/A");
+
+  /* Make the actionable conclusion stand out above the GS table.
+   * A 5% minimum advantage is a heuristic for the representative
+   * sample ONLY, never an automatic dispatch change.
+   */
+  choice = exact_ratio >= 105 ? best_name : "ijg_c";
+  scr_setXY(0,13);
+  scr_setfontcolor(0x0000ffffu);
+  if (dma_ratio && dma_ratio < 100)
+    scr_printf("TAKEAWAY: exact %-8s | VU0 float only; avoid DMA        ",
+               choice);
+  else
+    scr_printf("TAKEAWAY: exact %-8s | experiments need verification   ",
+               choice);
+
+  ps2_test_printf(
+    "CONCLUSION,exact_idct,%s,baseline_ijg_c,speed=%u.%02ux\n",
+    best_name, exact_ratio / 100, exact_ratio % 100);
+  if (fpu_ratio)
+    ps2_test_printf("CONCLUSION,fpu_approx,vs_ijg_c,speed=%u.%02ux,NOT_EXACT\n",
+                    fpu_ratio / 100, fpu_ratio % 100);
+  else
+    ps2_test_printf("CONCLUSION,fpu_approx,NO_QUALIFIED_RESULT\n");
+  if (vu_ratio)
+    ps2_test_printf("CONCLUSION,vu0_macro,vs_scalar_float_matrix,speed=%u.%02ux,EXPERIMENT_ONLY\n",
+                    vu_ratio / 100, vu_ratio % 100);
+  else
+    ps2_test_printf("CONCLUSION,vu0_macro,NO_QUALIFIED_RESULT\n");
+  if (dma_ratio)
+    ps2_test_printf("CONCLUSION,vif0_dma,vs_cpu_upload,speed=%u.%02ux,TRANSFER_ONLY\n",
+                    dma_ratio / 100, dma_ratio % 100);
+  else
+    ps2_test_printf("CONCLUSION,vif0_dma,NO_QUALIFIED_RESULT\n");
+  ps2_test_printf("CONCLUSION,recommend_exact,%s,REPRESENTATIVE_DENSE_ONLY\n",
+                  choice);
 }
 
 /* The five benchmark families run alongside their related regression
