@@ -22,7 +22,8 @@ VARIANTS = {
     "plain_up": ("portable_c", "mmi"),
     "fancy_up": ("portable_c", "mmi"),
     "downsample": ("portable_c", "mmi"),
-    "idct": ("ijg_c", "evenoff", "evenon", "batch", "direct"),
+    "idct": ("ijg_c", "evenoff", "evenon", "batch", "direct",
+             "lut", "lut_norow"),
     "quantize": ("ijg_c", "mmi", "regpipe"),
 }
 OPTIONAL_VARIANTS = {"idct": ("fpu_approx",)}
