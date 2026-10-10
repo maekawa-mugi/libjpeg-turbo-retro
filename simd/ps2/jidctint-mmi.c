@@ -22,6 +22,9 @@
 #include "../jsimdint.h"
 #include <stdint.h>
 #include <string.h>
+#if defined(PS2_IDCT_RANGE_LUT)
+#include "idct-range-lut.h"
+#endif
 
 #define CONST_BITS 13
 #define PASS1_BITS 2
@@ -49,6 +52,9 @@ static INLINE JSAMPLE
 ps2_idct_range(int x)
 {
   unsigned int index = (unsigned int)x & RANGE_MASK;
+#if defined(PS2_IDCT_RANGE_LUT)
+  return ps2_idct_lut[index];
+#else
   if (index < 128)
     return (JSAMPLE)(index + 128);
   if (index < 512)
@@ -56,6 +62,7 @@ ps2_idct_range(int x)
   if (index < 896)
     return 0;
   return (JSAMPLE)(index - 896);
+#endif
 }
 
 /* Detect nonzero AC coefficients in eight 128-bit chunks, masking DC. */
@@ -363,12 +370,14 @@ ps2_dequant_block(const JCOEF *coef, const ISLOW_MULT_TYPE *quant,
  * Full fixed-point range, IJG rounding, and DC shortcut are retained.
  * This is a separately benchmarked contender, not a dispatch change.
  */
-#if defined(PS2_IDCT_DIRECT)
+#if defined(PS2_IDCT_FAST_DQ)
+#define PS2_DEQUANT_AT(i) ((JLONG)inptr[(i)] * quantptr[(i)])
+#elif defined(PS2_IDCT_DIRECT)
 #define PS2_DEQUANT_AT(i) \
-  ((JLONG)((ISLOW_MULT_TYPE)coef_block[(i)]) * \
-   ((ISLOW_MULT_TYPE *)dct_table)[(i)])
+  ((JLONG)((ISLOW_MULT_TYPE)coef_block[(i) + (int)(inptr - coef_block)]) * \
+   ((ISLOW_MULT_TYPE *)dct_table)[(i) + (int)(inptr - coef_block)])
 #else
-#define PS2_DEQUANT_AT(i) dequant[(i)]
+#define PS2_DEQUANT_AT(i) dequant[(i) + (int)(inptr - coef_block)]
 #endif
 
 /*
@@ -384,6 +393,9 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
   JLONG tmp10, tmp11, tmp12, tmp13;
   JLONG z1, z2, z3, z4, z5;
   JCOEFPTR inptr;
+#if defined(PS2_IDCT_FAST_DQ)
+  ISLOW_MULT_TYPE *quantptr;
+#endif
 #if !defined(PS2_IDCT_DIRECT)
   JLONG dequant[DCTSIZE2] __attribute__((aligned(16)));
 #endif
@@ -416,6 +428,9 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
   /* furthermore, we scale the results by 2**PASS1_BITS. */
 
   inptr = coef_block;
+#if defined(PS2_IDCT_FAST_DQ)
+  quantptr = (ISLOW_MULT_TYPE *)dct_table;
+#endif
 #if !defined(PS2_IDCT_DIRECT)
   ps2_dequant_block(coef_block, (ISLOW_MULT_TYPE *)dct_table, dequant);
 #endif
@@ -435,7 +450,7 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
         inptr[DCTSIZE * 5] == 0 && inptr[DCTSIZE * 6] == 0 &&
         inptr[DCTSIZE * 7] == 0) {
       /* AC terms all zero */
-      int dcval = LEFT_SHIFT(PS2_DEQUANT_AT(DCTSIZE * 0 + (int)(inptr - coef_block)), PASS1_BITS);
+      int dcval = LEFT_SHIFT(PS2_DEQUANT_AT(DCTSIZE * 0), PASS1_BITS);
 
       wsptr[DCTSIZE * 0] = dcval;
       wsptr[DCTSIZE * 1] = dcval;
@@ -447,6 +462,9 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
       wsptr[DCTSIZE * 7] = dcval;
 
       inptr++;                  /* advance pointers to next column */
+#if defined(PS2_IDCT_FAST_DQ)
+      quantptr++;
+#endif
       wsptr++;
       continue;
     }
@@ -454,8 +472,8 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
     /* Even part: reverse the even part of the forward DCT. */
     /* The rotator is sqrt(2)*c(-6). */
 
-    z2 = PS2_DEQUANT_AT(DCTSIZE * 2 + (int)(inptr - coef_block));
-    z3 = PS2_DEQUANT_AT(DCTSIZE * 6 + (int)(inptr - coef_block));
+    z2 = PS2_DEQUANT_AT(DCTSIZE * 2);
+    z3 = PS2_DEQUANT_AT(DCTSIZE * 6);
 
 #if defined(PS2_IDCT_DIRECT)
     z1 = MULTIPLY(z2 + z3, FIX_0_541196100);
@@ -472,8 +490,8 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
     }
 #endif
 
-    z2 = PS2_DEQUANT_AT(DCTSIZE * 0 + (int)(inptr - coef_block));
-    z3 = PS2_DEQUANT_AT(DCTSIZE * 4 + (int)(inptr - coef_block));
+    z2 = PS2_DEQUANT_AT(DCTSIZE * 0);
+    z3 = PS2_DEQUANT_AT(DCTSIZE * 4);
 
     tmp0 = LEFT_SHIFT(z2 + z3, CONST_BITS);
     tmp1 = LEFT_SHIFT(z2 - z3, CONST_BITS);
@@ -487,10 +505,10 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
      * transpose is its inverse.  i0..i3 are y7,y5,y3,y1 respectively.
      */
 
-    tmp0 = PS2_DEQUANT_AT(DCTSIZE * 7 + (int)(inptr - coef_block));
-    tmp1 = PS2_DEQUANT_AT(DCTSIZE * 5 + (int)(inptr - coef_block));
-    tmp2 = PS2_DEQUANT_AT(DCTSIZE * 3 + (int)(inptr - coef_block));
-    tmp3 = PS2_DEQUANT_AT(DCTSIZE * 1 + (int)(inptr - coef_block));
+    tmp0 = PS2_DEQUANT_AT(DCTSIZE * 7);
+    tmp1 = PS2_DEQUANT_AT(DCTSIZE * 5);
+    tmp2 = PS2_DEQUANT_AT(DCTSIZE * 3);
+    tmp3 = PS2_DEQUANT_AT(DCTSIZE * 1);
 
     z1 = tmp0 + tmp3;
     z2 = tmp1 + tmp2;
@@ -562,6 +580,9 @@ jsimd_idct_islow_ps2mmi(void *dct_table,
 #endif
 
     inptr++;                    /* advance pointers to next column */
+#if defined(PS2_IDCT_FAST_DQ)
+    quantptr++;
+#endif
     wsptr++;
   }
 
