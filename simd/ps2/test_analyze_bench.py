@@ -62,6 +62,28 @@ class TestVerdicts(unittest.TestCase):
         _, missing = REPORT.inspect_matrix(partial)
         self.assertTrue(any("idct/fpu_approx" in x for x in missing))
 
+    def test_optional_vu_and_dma_experiments(self):
+        lines = complete_log()
+        extras = [
+            "CSV,vu_idct,scalar_matrix,dense,8,0,200000,100,2000",
+            "CSV,vu_idct,vu0_macro,dense,8,0,240000,100,2400",
+            "CSV,vif0_dma,cpu_store,upload256,256,0,100000,100,1000",
+            "CSV,vif0_dma,vif0_dma,upload256,256,0,400000,100,4000",
+        ]
+        lines[-2:-2] = extras
+        rows, errors = REPORT.parse_lines(lines)
+        self.assertFalse(errors)
+        ratios, missing = REPORT.inspect_matrix(rows)
+        self.assertFalse(missing)
+        self.assertEqual(len(rows), 488)
+        self.assertAlmostEqual(ratios["vu_idct", "vu0_macro"][0], 5 / 6)
+        self.assertAlmostEqual(ratios["vif0_dma", "vif0_dma"][0], 1 / 4)
+        incomplete = [line for line in lines
+                      if not line.startswith("CSV,vif0_dma,cpu_store,")]
+        partial, _ = REPORT.parse_lines(incomplete)
+        _, missing = REPORT.inspect_matrix(partial)
+        self.assertTrue(any("vif0_dma/cpu_store" in error for error in missing))
+
     def test_missing_single_variant_invalid(self):
         lines = [line for line in complete_log()
                  if not line.startswith("CSV,merged,vector,case0,")]
