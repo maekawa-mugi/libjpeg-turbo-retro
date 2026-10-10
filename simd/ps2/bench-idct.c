@@ -115,6 +115,7 @@ prepare_case(idct_case *ctx, unsigned profile,
     memset(refrows[i], 0xc9, DCT_ROW_BYTES);
     memset(outrows[0][i], 0xc9, DCT_ROW_BYTES);
     memset(outrows[1][i], 0xc9, DCT_ROW_BYTES);
+    memset(outrows[2][i], 0xc9, DCT_ROW_BYTES);
   }
 }
 
