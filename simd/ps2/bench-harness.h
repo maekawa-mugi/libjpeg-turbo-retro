@@ -77,6 +77,11 @@ int ps2_bench_compare(const char *category, const char *workload,
                       unsigned width, int alignment,
                       const ps2_bench_variant *variants, unsigned n,
                       unsigned repetitions);
+/* Only the final contender may differ from the reference (opt-in FPU). */
+int ps2_bench_compare_approx_last(const char *category, const char *workload,
+                                  unsigned width, int alignment,
+                                  const ps2_bench_variant *variants, unsigned n,
+                                  unsigned repetitions);
 void ps2_bench_csv(const char *category, const char *variant,
                    const char *workload, unsigned width, int alignment,
                    uint64_t ticks, unsigned repeats);
