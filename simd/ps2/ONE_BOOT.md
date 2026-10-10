@@ -70,18 +70,14 @@ The PS2 EE toolchain is required to produce the real ELF.
 
 ## Novelty experiment: VU0 arithmetic and VIF0 DMA upload
 
-The one-ELF test suite includes two additional benchmark experiments.
+The one-ELF test suite always includes two additional benchmark experiments.
 They are deliberately separate from the exact integer IDCT contenders.
 
 ```sh
 # Both experiments in the same ELF (no PR or runtime decoder changes):
 bash simd/ps2/build-test-elf.sh
 
-# Only 4-lane VU0 macro-mode floating IDCT:
-bash simd/ps2/build-test-elf.sh
-
-# Only VIF0 normal DMA UNPACK upload to VU0 local memory:
-bash simd/ps2/build-test-elf.sh
+# VU0 arithmetic and VIF0 DMA transfer are both always included.
 ```
 
 **VU0 IDCT (`vu_idct`, experimental on-screen row 8):** Computes a real
@@ -126,7 +122,7 @@ CSV,vif0_dma,vif0_dma,upload256,256,0,...
 ```
 
 The base CSV matrix is **484** rows, with 16 more if the
-earlier FPU experiment qualifies, 2 more per enabled experiment
+earlier FPU experiment qualifies, plus 2 each for VU0 and DMA
 (488 total with VU0 and VIF0 DMA, 504 including qualifying FPU).
 The report parser prints both experimental ratios separately from
 the production JPEG candidate verdicts. Neither experiment is
@@ -146,7 +142,7 @@ integer contenders, it is compared **byte for byte** against `ijg_c`
 in all 2048 block cases before its timing can be accepted.  It remains
 benchmark-only; do not assume it beats `ijg_c` without the console CSV.
 
-The explicit opt-in `WITH_PS2_APPROX_FPU_IDCT=ON` changes the
+The library-only option `WITH_PS2_APPROX_FPU_IDCT=ON` changes the
 **default decoder** IDCT to the existing IJG AA&N floating-point inverse
 transform (`JDCT_FLOAT`) on the EE's COP1 hardware.  It is **not** a
 bit-exact PS2 MMI kernel and is not a change to JPEG compression.
@@ -339,7 +335,8 @@ both C and the previous MMI implementations:
   Unsafe ranges and unaligned buffers retain the reference/fallback paths.
   The old implementation remains the `mmi` contender.
 
-No SPR is used.  The complete CSV matrix is now 484 rows by default (500 with qualifying FPU); use the matching
+No SPR is used by this quantizer. The one-ELF CSV matrix contains 488 rows
+(504 with qualifying FPU); use the matching
 `analyze-bench.py`.  All three candidates are automatically linked into
 `PS2_ALL_IN_ONE=ON` builds without additional flags.  The new color and
 IDCT candidates are benchmark-only until their measured performance is
