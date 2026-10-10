@@ -17,6 +17,9 @@ typedef short JCOEF;
 typedef JCOEF *JCOEFPTR;
 typedef short ISLOW_MULT_TYPE;
 typedef short DCTELEM;
+#define DCTSIZE 8
+#define DCTSIZE2 64
+typedef float FAST_FLOAT;
 
 #define RGB_PIXELSIZE 3
 #define RGB_RED 0
@@ -52,10 +55,13 @@ struct jpeg_decompress_struct {
   JSAMPLE *sample_range_limit;
 };
 typedef struct jpeg_component_info {
-  ISLOW_MULT_TYPE *dct_table;
+  void *dct_table;
 } jpeg_component_info;
 
 extern void _jpeg_idct_islow(struct jpeg_decompress_struct *,
+                              jpeg_component_info *, JCOEFPTR,
+                              JSAMPARRAY, JDIMENSION);
+extern void _jpeg_idct_float(struct jpeg_decompress_struct *,
                               jpeg_component_info *, JCOEFPTR,
                               JSAMPARRAY, JDIMENSION);
 
