@@ -47,6 +47,29 @@ groups passed)`.  The earlier 7/7 instructions below refer to the
 legacy non-integrated build.  All new optimizations stay disabled in
 normal JPEG dispatch until hardware validation and benchmarking.
 
+## Experimental chroma lookup benchmark (table)
+
+The all-in-one EE benchmark now includes a separate `table` contender for
+both `color` and `merged`.  It replaces the four 16.16 coefficient products
+per Cb/Cr sample with a 3072-byte read-only table (two 256-entry signed-short
+R/B offset arrays, two 256-entry signed-word G contribution arrays).
+The two G contributions are added **before** the signed 16-bit shift, so
+rounding matches IJG exactly.  Saturated pixel output still uses the existing
+R5900 `PMAXH`, `PMINH`, `PPACB` packing stage.  Merged h2v1/h2v2
+continues to share Cb/Cr offsets across both neighboring pixels and rows.
+There are no unaligned or out-of-bounds table accesses.
+
+The manual documents an **8 KiB, 2-way EE data cache**; fitting a 3 KiB
+table within it does not guarantee a speedup because lookup latency and
+cache conflicts can outweigh saved multiplications.  The `table` variant
+is correctness-gated and timed in the **same ELF** as `scalar`, `pmul4`,
+`pmul8`, and the existing advanced MMI variants.  Normal libjpeg
+dispatch stays unchanged.  Run the all-in-one benchmark on an actual EE or
+PCSX2, and compare `CSV,color,table` / `CSV,merged,table` to
+`scalar` at the same width/alignment.  The host regression
+`test-color-table-host.c` checks all 65,536 chroma byte pairs against the
+IJG reference math (and representative luma/clipping cases).
+
 ## Current coverage
 
 - `h2v1` plain upsampling: 16-byte MMI loads, byte interleave, 32-byte
