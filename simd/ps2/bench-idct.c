@@ -36,6 +36,62 @@ typedef struct {
   JSAMPARRAY output;
 } idct_call;
 
+#ifdef PS2_APPROX_FPU_IDCT
+/* IJG's AA&N floating inverse DCT requires a pre-scaled quantization
+ * table.  Prepare it outside timing; the real decoder caches this table
+ * in jddctmgr.c as well.  The PS2 FPU can legitimately differ from
+ * the bit-exact integer reference, so correctness is reported separately.
+ */
+static FAST_FLOAT fpu_quant[DCTSIZE2] __attribute__((aligned(16)));
+static JSAMPLE fpu_mem[8][DCT_ROW_BYTES] __attribute__((aligned(16)));
+static JSAMPROW fpu_rows[8];
+static const double fpu_aan[DCTSIZE] = {
+  1.0, 1.387039845, 1.306562965, 1.175875602,
+  1.0, 0.785694958, 0.541196100, 0.275899379
+};
+
+static void
+prepare_fpu_quant(idct_case *ctx)
+{
+  unsigned r, c;
+  for (r = 0; r < 8; r++)
+    for (c = 0; c < 8; c++) {
+      unsigned idx = r * 8 + c;
+      fpu_quant[idx] = (FAST_FLOAT)
+        ((double)ctx->quant[idx] * fpu_aan[r] * fpu_aan[c]);
+    }
+}
+
+static void
+call_fpu_approx(void *context)
+{
+  idct_case *ctx = (idct_case *)context;
+  component.dct_table = fpu_quant;
+  _jpeg_idct_float(&cinfo, &component, ctx->coeff, fpu_rows, ctx->outcol);
+  component.dct_table = ctx->quant;
+}
+
+static void
+reset_fpu_approx(void *context)
+{
+  unsigned row;
+  (void)context;
+  for (row = 0; row < 8; row++)
+    memset(fpu_rows[row], 0xc9, DCT_ROW_BYTES);
+}
+
+static uint32_t
+digest_fpu_approx(void *context)
+{
+  idct_case *ctx = (idct_case *)context;
+  uint32_t hash = 2166136261u;
+  unsigned row;
+  for (row = 0; row < 8; row++)
+    hash = ps2_bench_fnv(fpu_rows[row] + ctx->outcol, 8, hash);
+  return hash;
+}
+#endif
+
 static JSAMPLE
 range_limit_value(int x)
 {
@@ -65,6 +121,9 @@ initialize_idct(void)
     outrows[1][i] = outmem[1][i];
     outrows[2][i] = outmem[2][i];
     outrows[3][i] = outmem[3][i];
+#ifdef PS2_APPROX_FPU_IDCT
+    fpu_rows[i] = fpu_mem[i];
+#endif
   }
 }
 
@@ -201,6 +260,10 @@ ps2_bench_run_idct(void)
   const char *workloads[4] = { "dc_only", "sparse", "dense", "even_stress" };
   int valid[4] = { 1, 1, 1, 1 };
   int failures = 0;
+#ifdef PS2_APPROX_FPU_IDCT
+  unsigned fpu_max_diff = 0, fpu_differences = 0;
+  int fpu_guard_ok = 1;
+#endif
   unsigned profile, iteration, alignment, v;
 
   initialize_idct();
@@ -211,6 +274,28 @@ ps2_bench_run_idct(void)
         idct_case ctx;
         prepare_case(&ctx, profile, iteration, (int)alignment);
         call_islow_scalar(&ctx);
+#ifdef PS2_APPROX_FPU_IDCT
+        {
+          unsigned row, byte;
+          prepare_fpu_quant(&ctx);
+          reset_fpu_approx(NULL);
+          call_fpu_approx(&ctx);
+          for (row = 0; row < 8; row++)
+            for (byte = 0; byte < DCT_ROW_BYTES; byte++) {
+              unsigned delta, x = fpu_rows[row][byte], y = refrows[row][byte];
+              if (byte < ctx.outcol || byte >= ctx.outcol + 8) {
+                if (x != 0xc9)
+                  fpu_guard_ok = 0;
+                continue;
+              }
+              delta = x > y ? x - y : y - x;
+              if (delta > fpu_max_diff)
+                fpu_max_diff = delta;
+              if (delta)
+                fpu_differences++;
+            }
+        }
+#endif
         for (v = 0; v < 4; v++) {
           idct_call call;
           if (!valid[v])
@@ -231,14 +316,25 @@ ps2_bench_run_idct(void)
   for (v = 0; v < 4; v++)
     if (valid[v])
       printf("PASS,idct,%s,correctness,2048_cases\n", names[v]);
+#ifdef PS2_APPROX_FPU_IDCT
+  printf("APPROX,idct,fpu_approx,2048_cases,max_abs_diff=%u,different_pixels=%u,guards=%s\n",
+         fpu_max_diff, fpu_differences, fpu_guard_ok ? "PASS" : "FAIL");
+  /* Do not label this bit-exact.  More than 3 levels or an out-of-bounds
+   * write means that the candidate cannot be included in the benchmark. */
+  if (!fpu_guard_ok || fpu_max_diff > 3)
+    puts("SKIP,idct,fpu_approx,approx_quality_gate");
+#endif
 
   for (profile = 0; profile < 4; profile++)
     for (alignment = 0; alignment < 4; alignment++) {
       idct_case ctx;
       idct_call contexts[4];
-      ps2_bench_variant entries[5];
+      ps2_bench_variant entries[6];
       unsigned n = 0;
       prepare_case(&ctx, profile, 117, (int)alignment);
+#ifdef PS2_APPROX_FPU_IDCT
+      prepare_fpu_quant(&ctx);
+#endif
 
       entries[n].name = "ijg_c";
       entries[n].run = call_islow_scalar;
@@ -261,6 +357,20 @@ ps2_bench_run_idct(void)
         n++;
       }
 
+#ifdef PS2_APPROX_FPU_IDCT
+      if (fpu_guard_ok && fpu_max_diff <= 3) {
+        entries[n].name = "fpu_approx";
+        entries[n].run = call_fpu_approx;
+        entries[n].context = &ctx;
+        entries[n].digest = digest_fpu_approx;
+        entries[n].reset = reset_fpu_approx;
+        n++;
+        if (ps2_bench_compare_approx_last("idct", workloads[profile], 8,
+                                          (int)alignment, entries, n,
+                                          BENCH_COUNT))
+          failures++;
+      } else
+#endif
       if (n < 2 ||
           ps2_bench_compare("idct", workloads[profile], 8,
                             (int)alignment, entries, n, BENCH_COUNT))
