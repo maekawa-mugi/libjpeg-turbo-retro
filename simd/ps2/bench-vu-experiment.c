@@ -18,6 +18,15 @@
 #include <string.h>
 #if defined(PS2_EXPERIMENTAL_VIF0_DMA)
 #include <kernel.h>
+#define PS2_VU_TRANSFER_WORDS 64
+#define PS2_VU_TRANSFER_QWC 16
+#define PS2_VU_DMA_QWC (2 + PS2_VU_TRANSFER_QWC)
+#define PS2_VU_VIF0_DATA ((volatile uint32_t *)(uintptr_t)0x11004000u)
+#define PS2_VU_CHCR ((volatile uint32_t *)(uintptr_t)0x10008000u)
+#define PS2_VU_MADR ((volatile uint32_t *)(uintptr_t)0x10008010u)
+#define PS2_VU_QWC  ((volatile uint32_t *)(uintptr_t)0x10008020u)
+#define PS2_VU_VIF_STAT ((volatile uint32_t *)(uintptr_t)0x10003800u)
+#define PS2_VU_VIF_ERR  ((volatile uint32_t *)(uintptr_t)0x10003820u)
 #endif
 
 #if defined(PS2_EXPERIMENTAL_VU0)
@@ -309,7 +318,9 @@ wait_dma(void)
   while ((*PS2_VU_CHCR & 0x100u) && --limit) { }
   if (!limit) return 0;
   limit = 1000000;
-  while ((*PS2_VU_VIF_STAT & 0x1f000000u) && --limit) { }
+  /* FQC[27:24] must be empty and VPS[1:0] idle.  EE Core may
+   * only access VU0 data RAM while both VU0 and VIF0 are stopped. */
+  while ((*PS2_VU_VIF_STAT & (0x0f000000u | 0x3u)) && --limit) { }
   return limit != 0;
 }
 
@@ -355,9 +366,19 @@ int
 ps2_bench_run_vif0_dma(void)
 {
   ps2_bench_variant entries[2];
-  uint32_t expected, actual;
+  uint32_t expected, actual, original_vif_err;
+  int result;
   dma_failed = 0;
+  /* The EE manual documents a DMAtag mismatch detection erratum:
+   * set VIF0_ERR.ME0=1 and restore the user's original mask afterward. */
+  original_vif_err = *PS2_VU_VIF_ERR;
+  *PS2_VU_VIF_ERR = original_vif_err | 2u;
   init_dma_packet();
+  if (!wait_dma()) {
+    *PS2_VU_VIF_ERR = original_vif_err;
+    puts("FAIL,vif0_dma,vif0_not_idle");
+    return 1;
+  }
   run_cpu_store(NULL);
   expected = digest_vu_memory(NULL);
   run_vif0_dma(NULL);
@@ -365,6 +386,7 @@ ps2_bench_run_vif0_dma(void)
   if (dma_failed || expected != actual) {
     printf("FAIL,vif0_dma,upload256,expected=%08lx,actual=%08lx,timeout=%u\n",
            (unsigned long)expected, (unsigned long)actual, dma_failed);
+    *PS2_VU_VIF_ERR = original_vif_err;
     return 1;
   }
   puts("PASS,vif0_dma,upload256,256_bytes_verified");
@@ -378,8 +400,10 @@ ps2_bench_run_vif0_dma(void)
   entries[1].context = NULL;
   entries[1].reset = NULL;
   entries[1].digest = digest_vu_memory;
-  if (ps2_bench_compare("vif0_dma", "upload256", 256, 0, entries, 2, 64))
-    return 1;
-  return dma_failed ? 1 : 0;
+  result = ps2_bench_compare("vif0_dma", "upload256", 256, 0,
+                             entries, 2, 64);
+  if (!wait_dma()) dma_failed = 1;
+  *PS2_VU_VIF_ERR = original_vif_err;
+  return result || dma_failed ? 1 : 0;
 }
 #endif
