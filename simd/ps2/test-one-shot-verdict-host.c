@@ -75,6 +75,8 @@ ps2_bench_run_idct(void)
   ps2_bench_csv("idct", "evenon", "dense", 8, 0, 290000, 100);
   ps2_bench_csv("idct", "batch", "dense", 8, 0, 285000, 100);
   ps2_bench_csv("idct", "direct", "dense", 8, 0, 130000, 100);
+  ps2_bench_csv("idct", "lut", "dense", 8, 0, 125000, 100);
+  ps2_bench_csv("idct", "lut_norow", "dense", 8, 0, 128000, 100);
   /* This is faster, but approximate and must not win 'exact IDCT'. */
   ps2_bench_csv("idct", "fpu_approx", "dense", 8, 0, 110000, 100);
   return 0;
@@ -103,15 +105,15 @@ int main(void)
   extern void ps2_bench_one_shot_verdict(int valid);
   ps2_bench_begin();
   assert(ps2_bench_run_group(2) == 0);
-  assert(!strcmp(strict_idct, "direct"));
+  assert(!strcmp(strict_idct, "lut"));
   assert(ps2_bench_run_group(5) == 0);
   assert(ps2_bench_run_group(6) == 0);
   ps2_bench_one_shot_verdict(1);
-  assert(strstr(screen[1], "EXACT IDCT: direct"));
+  assert(strstr(screen[1], "EXACT IDCT: lut"));
   assert(strstr(screen[1], "FPU~: 1.27x"));
   assert(strstr(screen[2], "VU0 vs float: 1.76x"));
   assert(strstr(screen[2], "DMA vs CPU upload: 0.27x"));
-  assert(strstr(screen[13], "TAKEAWAY: exact direct"));
+  assert(strstr(screen[13], "TAKEAWAY: exact lut"));
   assert(strstr(screen[13], "skip DMA"));
   ps2_bench_one_shot_verdict(0);
   assert(strstr(screen[1], "VERDICT INVALID"));
