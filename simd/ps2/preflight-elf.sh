@@ -2,7 +2,7 @@
 # Validate one-boot PS2 EE test ELF before transferring it.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
-elf=${1:-"$root/build-ps2/simd/ps2_mmi_test_suite.elf"}
+elf=${1:-"$root/libjpeg_turbo_mmi.elf"}
 : "${PS2DEV:=/usr/local/ps2dev}"
 [[ -s "$elf" ]] || { echo "Missing or empty test ELF: $elf" >&2; exit 1; }
 
